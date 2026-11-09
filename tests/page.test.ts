@@ -19,6 +19,22 @@ function createPage(
   });
 }
 
+const PLACEMENT_SELECTORS = [
+  ".archive-scan-exposure",
+  ".archive-scan-bleed",
+  ".archive-scan-paper-texture",
+  ".archive-scan-grain",
+  ".archive-scan-edge",
+] as const;
+
+function placementStyles(page: CourseReaderPage): Array<string | null> {
+  return PLACEMENT_SELECTORS.map((selector) => {
+    const overlay = page.element.querySelector<HTMLElement>(selector)!;
+
+    return overlay.getAttribute("style");
+  });
+}
+
 describe("createCourseReaderPage", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -124,6 +140,21 @@ describe("createCourseReaderPage", () => {
     expect(firstSpecks.map((speck) => speck.getAttribute("style"))).toEqual(
       secondSpecks.map((speck) => speck.getAttribute("style")),
     );
+
+    /* Overlay placement is seeded as well. */
+    expect(placementStyles(first)).toEqual(placementStyles(second));
+
+    const exposure = first.element.querySelector<HTMLElement>(
+      ".archive-scan-exposure",
+    )!;
+
+    expect(exposure.style.getPropertyValue("--archive-unevenness-x")).toBe(
+      "44.00%",
+    );
+
+    expect(
+      exposure.style.getPropertyValue("--archive-unevenness-angle-a"),
+    ).toBe("96.00deg");
   });
 
   it("produces different noise for different seeds", () => {
@@ -138,6 +169,74 @@ describe("createCourseReaderPage", () => {
     expect(customProperty(second.element, "--archive-grain-image")).not.toBe(
       customProperty(first.element, "--archive-grain-image"),
     );
+  });
+
+  it("seeds the overlay placement so different seeds diverge", () => {
+    const firstSource = sampleDocument("placement-a");
+
+    const secondSource = sampleDocument("placement-b");
+
+    const options = {
+      overrides: {
+        exposure: { unevenness: 0.5 },
+        artifacts: { bleedThrough: 0.6, edgeNoise: 0.7 },
+      },
+    } as const;
+
+    const first = createPage(firstSource, {
+      seed: "placement-one",
+      ...options,
+    });
+
+    const second = createPage(secondSource, {
+      seed: "placement-two",
+      ...options,
+    });
+
+    expect(placementStyles(second)).not.toEqual(placementStyles(first));
+
+    const firstExposure = first.element.querySelector<HTMLElement>(
+      ".archive-scan-exposure",
+    )!;
+
+    const secondExposure = second.element.querySelector<HTMLElement>(
+      ".archive-scan-exposure",
+    )!;
+
+    expect(
+      secondExposure.style.getPropertyValue("--archive-unevenness-x"),
+    ).not.toBe(firstExposure.style.getPropertyValue("--archive-unevenness-x"));
+
+    expect(
+      secondExposure.style.getPropertyValue("--archive-unevenness-angle-a"),
+    ).not.toBe(
+      firstExposure.style.getPropertyValue("--archive-unevenness-angle-a"),
+    );
+
+    const firstEdge =
+      first.element.querySelector<HTMLElement>(".archive-scan-edge")!;
+
+    const secondEdge =
+      second.element.querySelector<HTMLElement>(".archive-scan-edge")!;
+
+    expect(
+      secondEdge.style.getPropertyValue("--archive-edge-blur-left"),
+    ).not.toBe(firstEdge.style.getPropertyValue("--archive-edge-blur-left"));
+  });
+
+  it("keeps the seeded placement stable across unrelated updates", () => {
+    const source = sampleDocument("placement-update");
+
+    const page = createPage(source, {
+      seed: "placement-update-seed",
+      overrides: { exposure: { unevenness: 0.4 } },
+    });
+
+    const before = placementStyles(page);
+
+    page.update({ paper: { tone: 0.4 } });
+
+    expect(placementStyles(page)).toEqual(before);
   });
 
   it("renders the paper tone into the page custom property", () => {

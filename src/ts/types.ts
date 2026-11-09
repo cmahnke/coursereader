@@ -260,7 +260,9 @@ export interface CourseReaderPageOptions {
   overrides?: DeepPartial<ScanSettings>;
 
   /**
-   * Seed for deterministic noise, artifacts and jitter.
+   * Seed for deterministic noise, artifacts, jitter and the
+   * placement of exposure falloff, show-through pattern, noise
+   * tiles and edge shadows.
    */
   seed?: string | number;
 

@@ -73,6 +73,7 @@
   opacity: var(--archive-texture);
   mix-blend-mode: multiply;
   background-image: var(--archive-texture-image, none);
+  background-position: var(--archive-texture-position, 0 0);
   background-size: 260px 260px;
 }
 
@@ -80,16 +81,21 @@
   opacity: var(--archive-unevenness);
   mix-blend-mode: multiply;
   background:
-    radial-gradient(ellipse at 44% 37%, rgb(255 255 255 / 8%), transparent 45%),
+    radial-gradient(
+      ellipse at var(--archive-unevenness-x, 44%)
+        var(--archive-unevenness-y, 37%),
+      rgb(255 255 255 / 8%),
+      transparent 45%
+    ),
     linear-gradient(
-      96deg,
+      var(--archive-unevenness-angle-a, 96deg),
       rgb(0 0 0 / 20%),
       transparent 12%,
       transparent 81%,
       rgb(0 0 0 / 13%)
     ),
     linear-gradient(
-      0deg,
+      var(--archive-unevenness-angle-b, 0deg),
       rgb(0 0 0 / 10%),
       transparent 17%,
       transparent 86%,
@@ -100,6 +106,7 @@
 .archive-scan-grain {
   mix-blend-mode: multiply;
   background-image: var(--archive-grain-image, none);
+  background-position: var(--archive-grain-position, 0 0);
   background-size: 320px 320px;
 }
 
@@ -108,26 +115,32 @@
   mix-blend-mode: multiply;
   background:
     repeating-linear-gradient(
-      2deg,
+      var(--archive-bleed-angle, 2deg),
       transparent 0 12px,
       rgb(0 0 0 / 7%) 13px,
       transparent 14px 25px
     ),
-    radial-gradient(ellipse at 63% 24%, rgb(0 0 0 / 8%), transparent 35%);
+    radial-gradient(
+      ellipse at var(--archive-bleed-x, 63%) var(--archive-bleed-y, 24%),
+      rgb(0 0 0 / 8%),
+      transparent 35%
+    );
   transform: scaleX(-1);
 }
 
 .archive-scan-edge {
   box-shadow:
-    inset var(--archive-border-width) 0 calc(var(--archive-border-width) * 0.6)
+    inset var(--archive-border-width) 0
+      calc(var(--archive-border-width) * var(--archive-edge-blur-left, 0.6))
       rgb(0 0 0 / var(--archive-border-darkness)),
     inset calc(var(--archive-border-width) * -1) 0
-      calc(var(--archive-border-width) * 0.6)
+      calc(var(--archive-border-width) * var(--archive-edge-blur-right, 0.6))
       rgb(0 0 0 / var(--archive-border-darkness)),
-    inset 0 var(--archive-border-width) calc(var(--archive-border-width) * 0.4)
+    inset 0 var(--archive-border-width)
+      calc(var(--archive-border-width) * var(--archive-edge-blur-top, 0.4))
       rgb(0 0 0 / var(--archive-border-darkness)),
     inset 0 calc(var(--archive-border-width) * -1)
-      calc(var(--archive-border-width) * 0.4)
+      calc(var(--archive-border-width) * var(--archive-edge-blur-bottom, 0.4))
       rgb(0 0 0 / var(--archive-border-darkness));
   opacity: var(--archive-edge-noise);
 }

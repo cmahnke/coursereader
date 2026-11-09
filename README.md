@@ -295,6 +295,11 @@ implementations can still differ slightly, so this is deterministic
 configuration rather than guaranteed pixel-identical output across all
 browsers.
 
+The seed also steers the placement of the exposure falloff, the
+show-through pattern, the noise tile alignment and the sheet edge
+shadows, so pages with different seeds produce visibly different scans
+even with identical settings.
+
 ## Defining presets in code
 
 Presets are plain serializable configuration objects:

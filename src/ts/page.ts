@@ -38,6 +38,18 @@ function createOverlay(className: string): HTMLDivElement {
   return element;
 }
 
+/**
+ * Draws a signed offset around zero: `amount` scales the drift
+ * and `span` is its full reach at amount 1.
+ */
+function seededDrift(
+  random: () => number,
+  amount: number,
+  span: number,
+): number {
+  return (random() * 2 - 1) * amount * span;
+}
+
 function createArtifacts(
   settings: ScanSettings,
   random: () => number,
@@ -343,6 +355,85 @@ export function createCourseReaderPage(
       "--archive-edge-noise",
       String(clamp(settings.artifacts.edgeNoise)),
     );
+
+    /*
+     * The seed also steers the geometry of the light falloff,
+     * the show-through pattern, the noise tile alignment and
+     * the sheet edge shadows, so pages with different seeds
+     * diverge beyond the artifact specks. Every drift scales
+     * with its effect's strength, keeping subtle presets
+     * subtle; with the strength at zero the placement matches
+     * the CSS fallbacks exactly.
+     */
+    const unevenRandom = createRandom(`${seed}:unevenness`);
+
+    const unevenness = clamp(settings.exposure.unevenness);
+
+    exposure.style.setProperty(
+      "--archive-unevenness-x",
+      `${(44 + seededDrift(unevenRandom, unevenness, 24)).toFixed(2)}%`,
+    );
+
+    exposure.style.setProperty(
+      "--archive-unevenness-y",
+      `${(37 + seededDrift(unevenRandom, unevenness, 18)).toFixed(2)}%`,
+    );
+
+    exposure.style.setProperty(
+      "--archive-unevenness-angle-a",
+      `${(96 + seededDrift(unevenRandom, unevenness, 30)).toFixed(2)}deg`,
+    );
+
+    exposure.style.setProperty(
+      "--archive-unevenness-angle-b",
+      `${seededDrift(unevenRandom, unevenness, 24).toFixed(2)}deg`,
+    );
+
+    const bleedRandom = createRandom(`${seed}:bleed`);
+
+    const bleedThrough = clamp(settings.artifacts.bleedThrough);
+
+    bleed.style.setProperty(
+      "--archive-bleed-angle",
+      `${(2 + seededDrift(bleedRandom, bleedThrough, 6)).toFixed(2)}deg`,
+    );
+
+    bleed.style.setProperty(
+      "--archive-bleed-x",
+      `${(63 + seededDrift(bleedRandom, bleedThrough, 18)).toFixed(2)}%`,
+    );
+
+    bleed.style.setProperty(
+      "--archive-bleed-y",
+      `${(24 + seededDrift(bleedRandom, bleedThrough, 14)).toFixed(2)}%`,
+    );
+
+    const offsetRandom = createRandom(`${seed}:offsets`);
+
+    texture.style.setProperty(
+      "--archive-texture-position",
+      `${(offsetRandom() * 260).toFixed(1)}px ${(offsetRandom() * 260).toFixed(1)}px`,
+    );
+
+    grain.style.setProperty(
+      "--archive-grain-position",
+      `${(offsetRandom() * 320).toFixed(1)}px ${(offsetRandom() * 320).toFixed(1)}px`,
+    );
+
+    const edgeRandom = createRandom(`${seed}:edge`);
+
+    const edgeNoise = clamp(settings.artifacts.edgeNoise);
+
+    const edgeBlur = {
+      left: 0.6 + seededDrift(edgeRandom, edgeNoise, 0.3),
+      right: 0.6 + seededDrift(edgeRandom, edgeNoise, 0.3),
+      top: 0.4 + seededDrift(edgeRandom, edgeNoise, 0.3),
+      bottom: 0.4 + seededDrift(edgeRandom, edgeNoise, 0.3),
+    };
+
+    for (const [side, factor] of Object.entries(edgeBlur)) {
+      edge.style.setProperty(`--archive-edge-blur-${side}`, factor.toFixed(3));
+    }
 
     const borderOpacity = settings.border.enabled
       ? clamp(settings.border.darkness)
