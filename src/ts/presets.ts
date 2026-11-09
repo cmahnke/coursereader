@@ -433,6 +433,80 @@ export class PresetRegistry extends Registry<PresetDefinition> {
   }
 
   /**
+   * Loads presets from a JSON document over HTTP.
+   *
+   * The document is either a single preset definition — registered
+   * under the supplied `name` — or a preset map of
+   * `{ presetName: definition }` entries imported wholesale.
+   *
+   * @param url - URL of the JSON document.
+   * @param name - Preset name for a single definition. Required
+   * when the document is not a preset map.
+   * @returns The registered preset names.
+   * @throws {Error} When the fetch fails or the document shape
+   * cannot be identified.
+   *
+   * @example
+   * ```ts
+   * // A map of presets: { "newsprint": { ... }, ... }
+   * await presets.fromUrl("./presets/office.json");
+   *
+   * // A single definition: { "extends": "clean", ... }
+   * await presets.fromUrl("./presets/newsprint.json", "newsprint");
+   * ```
+   */
+  async fromUrl(url: string, name?: string): Promise<string[]> {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to load presets from "${url}": ${response.status} ${response.statusText}.`,
+      );
+    }
+
+    const definition = (await response.json()) as
+      | PresetDefinition
+      | PresetMap;
+
+    if (typeof definition !== "object" || definition === null) {
+      throw new Error(
+        `The preset document "${url}" is not a JSON object.`,
+      );
+    }
+
+    if (name) {
+      this.set(name, definition);
+
+      return [name];
+    }
+
+    const settingsKeys: ReadonlyArray<keyof ScanSettings | "extends"> = [
+      "paper",
+      "exposure",
+      "ink",
+      "tone",
+      "artifacts",
+      "capture",
+      "border",
+      "extends",
+    ];
+
+    const isSingleDefinition = settingsKeys.some(
+      (key) => key in definition,
+    );
+
+    if (isSingleDefinition) {
+      throw new Error(
+        `The preset document "${url}" contains a single preset definition; pass a preset name to presets.fromUrl().`,
+      );
+    }
+
+    this.import(definition as PresetMap);
+
+    return Object.keys(definition);
+  }
+
+  /**
    * Registers every definition in a preset map.
    *
    * @param definitions - Presets to add or replace by name.

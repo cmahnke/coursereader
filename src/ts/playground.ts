@@ -8,7 +8,7 @@
 
 import { bindings } from "./bindings.js";
 import { buildSvgFilter, createToneFilter } from "./filters.js";
-import { archiveScan } from "./page.js";
+import { courseReader } from "./page.js";
 import {
   SAMPLE_DOCUMENT,
   SAMPLE_DOCUMENT_RIGHT,
@@ -17,15 +17,15 @@ import {
 import { installPlaygroundStyles } from "./playground-styles.js";
 import { presets } from "./presets.js";
 import type {
-  ArchivePage,
-  ArchivePageOptions,
-  ArchiveViewer,
+  CourseReaderPage,
+  CourseReaderPageOptions,
+  CourseReaderViewer,
   DeepPartial,
   ResponsiveLayout,
   ScanSettings,
 } from "./types.js";
-import { clamp, hashSeed, resolveElement } from "./utils.js";
-import { createArchiveViewer } from "./viewer.js";
+import { clamp, resolveElement } from "./utils.js";
+import { createCourseReaderViewer } from "./viewer.js";
 
 /**
  * Content and section options for {@link createPlayground}.
@@ -103,15 +103,18 @@ const VIEWER_PAGE_SELECTORS = [
 
 const RING_FRAME_TOP = 72;
 
+const ROTATION_RANGE = 3;
+
 interface ViewerConfig {
   preset: string;
   seed: string | number;
-  enhancement: ArchivePageOptions["enhancement"];
+  enhancement: CourseReaderPageOptions["enhancement"];
   overrides: DeepPartial<ScanSettings>;
 }
 
 interface PlaygroundShared {
   viewerConfig: ViewerConfig | null;
+  pageCount: number;
   refreshViewer: (() => void) | null;
   setViewerBinding: ((name: string) => void) | null;
   showViewerTab: (() => void) | null;
@@ -343,13 +346,26 @@ const PANEL_MARKUP = `
 
   <fieldset>
     <legend>Binding</legend>
-    <select id="control-binding-style" aria-label="Binding style">
-      <option value="spine" selected>Spine shadow</option>
-      <option value="subtle">subtle</option>
-      <option value="bound-volume">bound-volume</option>
-      <option value="deep-bound-volume">deep-bound-volume</option>
-      <option value="demo-binding">demo-binding</option>
-    </select>
+    <label class="demo-slider">
+      <span class="demo-slider-title"
+        >Pages per side
+        <button
+          class="demo-info"
+          type="button"
+          aria-label="About pages per side"
+          aria-expanded="false"
+        >
+          i
+        </button>
+      </span>
+      <input id="control-page-count" type="range" min="1" max="16" step="1" value="8" />
+      <output id="output-page-count">–</output>
+      <span class="demo-popover" role="tooltip"
+        >Stacks more sheets at the left and right fore-edges and
+        deepens the spine fold. The default of 8 matches the
+        original look.</span
+      >
+    </label>
   </fieldset>
 
   <fieldset>
@@ -507,6 +523,27 @@ const PANEL_MARKUP = `
       >
     </label>
 
+    <label class="demo-slider demo-toggle">
+      <span class="demo-slider-title"
+        >Grayscale dithering
+        <button
+          class="demo-info"
+          type="button"
+          aria-label="About grayscale dithering"
+          aria-expanded="false"
+        >
+          i
+        </button>
+      </span>
+      <input id="control-dithered-gray" type="checkbox" />
+      <span class="demo-popover" role="tooltip"
+        >Reproduces every gray tone as random black dots (stochastic
+        screening): darker areas get more dots, lighter areas fewer.
+        The sheet stays a live document while all tones come from
+        random dithering.</span
+      >
+    </label>
+
     <label class="demo-slider">
       <span class="demo-slider-title"
         >Rotation — left page
@@ -519,12 +556,19 @@ const PANEL_MARKUP = `
           i
         </button>
       </span>
-      <input id="control-rotation-left" type="range" min="0" max="1" step="0.02" />
+      <input
+        id="control-rotation-left"
+        type="range"
+        min="-${ROTATION_RANGE}"
+        max="${ROTATION_RANGE}"
+        step="0.05"
+        value="0"
+      />
       <output id="output-rotation-left">–</output>
       <span class="demo-popover" role="tooltip"
-        >Seeded random misalignment of the left (verso) sheet. In
-        facing-pages mode each page tilts independently of the
-        other.</span
+        >Manual rotation of the left (verso) sheet. The center is
+        straight; sliding left or right sets the direction and angle.
+        In facing-pages mode each page rotates independently.</span
       >
     </label>
 
@@ -540,12 +584,19 @@ const PANEL_MARKUP = `
           i
         </button>
       </span>
-      <input id="control-rotation-right" type="range" min="0" max="1" step="0.02" />
+      <input
+        id="control-rotation-right"
+        type="range"
+        min="-${ROTATION_RANGE}"
+        max="${ROTATION_RANGE}"
+        step="0.05"
+        value="0"
+      />
       <output id="output-rotation-right">–</output>
       <span class="demo-popover" role="tooltip"
-        >Seeded random misalignment of the right (recto) sheet. In
-        facing-pages mode each page tilts independently of the other;
-        single-page mode follows the left setting.</span
+        >Manual rotation of the right (recto) sheet. The center is
+        straight; sliding left or right sets the direction and angle.
+        In single-page mode the left setting applies.</span
       >
     </label>
 
@@ -754,9 +805,12 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     "#control-ring-binder",
   )!;
 
-  const bindingStyleSelect = document.querySelector<HTMLSelectElement>(
-    "#control-binding-style",
+  const pageCountSlider = document.querySelector<HTMLInputElement>(
+    "#control-page-count",
   )!;
+
+  const pageCountOutput =
+    document.querySelector<HTMLElement>("#output-page-count")!;
 
   const toViewerButton =
     document.querySelector<HTMLButtonElement>("#control-to-viewer")!;
@@ -778,6 +832,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   const frameToggle =
     document.querySelector<HTMLInputElement>("#control-frame")!;
+
+  const ditheredGrayToggle = document.querySelector<HTMLInputElement>(
+    "#control-dithered-gray",
+  )!;
 
   const desk = document.querySelector<HTMLDivElement>("#playground-desk")!;
 
@@ -866,15 +924,15 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     requireSlider(
       "control-rotation-left",
       "output-rotation-left",
-      (settings) => settings.capture.rotationJitter,
-      (value) => ({ capture: { rotationJitter: value } }),
+      (settings) => settings.capture.rotation,
+      (value) => ({ capture: { rotation: value, rotationJitter: 0 } }),
     ),
 
     requireSlider(
       "control-rotation-right",
       "output-rotation-right",
-      (settings) => settings.capture.rotationJitter,
-      (value) => ({ capture: { rotationJitter: value } }),
+      (settings) => settings.capture.rotation,
+      (value) => ({ capture: { rotation: value, rotationJitter: 0 } }),
     ),
 
     requireSlider(
@@ -885,7 +943,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     ),
   ];
 
-  let pages: ArchivePage[] = [];
+  let pages: CourseReaderPage[] = [];
 
   let spreadElement: HTMLDivElement | null = null;
 
@@ -893,13 +951,11 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   let bindingContainer: HTMLElement | null = null;
 
-  let bindingSign = 0;
+  let bindingRotator: HTMLElement | null = null;
 
-  /*
-   * Rotation amounts while the pages are not locked, restored
-   * when the ring binder is switched off again.
-   */
-  const unlockedJitter = { left: 0, right: 0 };
+  const pageRotation = { left: 0, right: 0 };
+
+  let pageCount = 8;
 
   function rotationSliderValue(id: string): number {
     const slider = sliders.find((entry) => entry.input.id === id);
@@ -919,6 +975,61 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     settingsOutput.textContent = pages.length
       ? JSON.stringify(pages[0].settings, null, 2)
       : "// effect destroyed";
+  }
+
+  /*
+   * Stochastic screening: the dither amplitude of 0.5 against the
+   * bitonal threshold maps the random dot density exactly onto the
+   * tone, so every gray level is reproduced by dithering.
+   */
+  const DITHERED_GRAY_TONE: ScanSettings["tone"] = {
+    mode: "bitonal",
+    levels: 2,
+    threshold: 0.5,
+    dither: "random",
+    ditherAmount: 0.5,
+  };
+
+  let toneBeforeDither: ScanSettings["tone"] | null = null;
+
+  function captureTone(): ScanSettings["tone"] {
+    if (layoutSelect.value === "spread") {
+      return { ...intendedTone };
+    }
+
+    return pages[0] ? { ...pages[0].settings.tone } : { ...intendedTone };
+  }
+
+  function applyDitheredGray(): void {
+    if (layoutSelect.value === "spread") {
+      intendedTone = { ...DITHERED_GRAY_TONE };
+
+      syncSpreadTone();
+
+      return;
+    }
+
+    for (const page of pages) {
+      page.update({ tone: DITHERED_GRAY_TONE });
+    }
+  }
+
+  function restoreDitheredGray(): void {
+    const tone = toneBeforeDither ?? presets.resolve(presetSelect.value).tone;
+
+    toneBeforeDither = null;
+
+    if (layoutSelect.value === "spread") {
+      intendedTone = tone;
+
+      syncSpreadTone();
+
+      return;
+    }
+
+    for (const page of pages) {
+      page.update({ tone });
+    }
   }
 
   /*
@@ -959,28 +1070,36 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     frameToggle.checked = settings.border.enabled;
 
     for (const slider of sliders) {
+      let value: number;
+
       if (slider.input.id === "control-rotation-left") {
-        if (!ringBinderToggle.checked) {
-          slider.input.value = String(pages[0].settings.capture.rotationJitter);
-        }
+        value = pageRotation.left;
       } else if (slider.input.id === "control-rotation-right") {
         slider.input.disabled =
           layoutSelect.value !== "spread" || ringBinderToggle.checked;
 
-        slider.input.value = String(
-          layoutSelect.value === "spread" && pages.length > 1
-            ? pages[1].settings.capture.rotationJitter
-            : 0,
-        );
+        value = layoutSelect.value === "spread" ? pageRotation.right : 0;
       } else {
-        slider.input.value = String(sliderValue(slider, settings));
+        value = sliderValue(slider, settings);
+
+        slider.input.disabled =
+          toneSliderIds.has(slider.input.id) && ditheredGrayToggle.checked;
       }
 
-      slider.output.textContent =
-        slider.input.id === "control-levels"
-          ? String(levelsFromPosition(Number(slider.input.value)))
-          : slider.input.value;
+      slider.input.value = String(value);
+
+      slider.output.textContent = slider.input.id.startsWith("control-rotation")
+        ? `${value.toFixed(2)}°`
+        : slider.input.id === "control-levels"
+          ? String(levelsFromPosition(value))
+          : String(value);
     }
+
+    pageCountSlider.value = String(pageCount);
+
+    pageCountSlider.disabled = layoutSelect.value !== "spread";
+
+    pageCountOutput.textContent = String(pageCount);
   }
 
   function setOverridesDisabled(disabled: boolean): void {
@@ -1015,6 +1134,14 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     spread.className = "demo-spread";
 
+    const viewport = document.createElement("div");
+
+    viewport.className = "demo-spread-viewport";
+
+    const rotator = document.createElement("div");
+
+    rotator.className = "demo-spread-rotator";
+
     const leftHost = document.createElement("div");
 
     leftHost.className = "demo-sheet-host demo-sheet-verso";
@@ -1026,7 +1153,11 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     leftHost.append(firstSheet);
     rightHost.append(secondSheet);
 
-    spread.append(leftHost, rightHost);
+    rotator.append(leftHost, rightHost);
+
+    viewport.append(rotator);
+
+    spread.append(viewport);
 
     spreadElement = spread;
 
@@ -1078,10 +1209,9 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
   }
 
   /*
-   * Ring binder chrome: the rail hangs above the sheets, and the
-   * top frame band is removed so the holes punch through clean
-   * paper. The spine curl stays — the binding is an addition to
-   * the open book, not a replacement of it.
+   * Ring binder chrome: the comb sits inside the page's top
+   * frame band and rotates with the complete bound book inside
+   * the fixed outer frame.
    */
   function applyBinding(ringTop: boolean): void {
     const container = desk.querySelector<HTMLElement>(
@@ -1099,6 +1229,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     container.classList.toggle("ring-top", ringTop && isSpread);
 
     container.classList.toggle("ring-left", ringTop && !isSpread);
+
+    bindingRotator = isSpread
+      ? container.querySelector<HTMLElement>(".demo-spread-rotator")
+      : null;
 
     const existing = container.querySelector(".demo-ring-binder");
 
@@ -1136,7 +1270,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
         );
       }
 
-      container.append(binder);
+      (bindingRotator ?? container).append(binder);
     } else if (!ringTop) {
       existing?.remove();
 
@@ -1159,112 +1293,155 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     }
 
     if (!bindingContainer.classList.contains("ring-top")) {
-      bindingContainer.classList.remove("ring-framed");
-
       clearBinderLayout(binder);
+
+      applyBindingTilt();
 
       return;
     }
 
-    const pages = [
+    const pageElements = [
       ...bindingContainer.querySelectorAll<HTMLElement>(".archive-scan-page"),
     ];
 
-    const framed = prepareRingFrame(pages);
+    if (pageElements.length === 0 || pages.length === 0) {
+      return;
+    }
 
-    bindingContainer.classList.toggle("ring-framed", framed);
+    const framed = prepareRingFrame(pageElements);
 
-    const bounds = sheetBounds(bindingContainer);
+    const rotator = bindingRotator;
+
+    if (rotator) {
+      rotator.style.paddingTop = framed ? "" : "46px";
+    }
+
+    const settings = pages[0].settings;
+
+    const frameValue = Math.round((1 - clamp(settings.border.darkness)) * 255);
+
+    const thickness = Math.max(0, settings.border.thickness);
+
+    bindingContainer.style.setProperty(
+      "--demo-frame-color",
+      `rgb(${frameValue}, ${frameValue}, ${frameValue})`,
+    );
+
+    bindingContainer.style.setProperty(
+      "--demo-frame-thickness",
+      `${thickness}px`,
+    );
+
+    const bounds = sheetBounds(rotator ?? bindingContainer);
 
     if (!bounds) {
       return;
     }
 
     positionBinder(binder, bounds);
+    applyBindingTilt();
   }
 
   /*
-   * Ring-bound sheets are locked in alignment, so the per-page
-   * rotation is disabled and the whole copy — pages and binding
-   * together — carries one seeded tilt instead.
+   * Ring-bound pages are locked in alignment, so the complete
+   * book — stages, sheets, fold and binder — rotates as one unit
+   * inside the fixed outer frame.
    */
   function applyBindingTilt(): void {
     if (!bindingContainer) {
       return;
     }
 
+    bindingContainer.style.removeProperty("transform");
+
+    const rotator = bindingRotator;
+
     if (!ringBinderToggle.checked) {
-      bindingContainer.style.removeProperty("transform");
+      rotator?.style.removeProperty("transform");
 
-      return;
-    }
-
-    const angle =
-      rotationSliderValue("control-rotation-left") * 1.2 * bindingSign;
-
-    bindingContainer.style.transform = angle
-      ? `rotate(${angle.toFixed(3)}deg)`
-      : "";
-  }
-
-  /*
-   * The viewer's binding styles drive the spine curl: width,
-   * darkness and highlight come from the binding registry.
-   */
-  function applyBindingStyle(): void {
-    if (!bindingContainer) {
-      return;
-    }
-
-    const name = bindingStyleSelect.value;
-
-    const variables = [
-      "--demo-curl-half",
-      "--demo-curl-edge",
-      "--demo-curl-mid",
-      "--demo-curl-core",
-      "--demo-curl-light-1",
-      "--demo-curl-light-2",
-    ];
-
-    if (name === "spine" || !bindings.has(name)) {
-      for (const variable of variables) {
-        bindingContainer.style.removeProperty(variable);
+      for (const element of bindingContainer.querySelectorAll<HTMLElement>(
+        ".archive-scan-content",
+      )) {
+        element.style.removeProperty("transform-origin");
       }
 
       return;
     }
 
-    const style = bindings.get(name);
+    const angle = rotationSliderValue("control-rotation-left");
+
+    const transform = angle ? `rotate(${angle.toFixed(3)}deg)` : "";
+
+    if (rotator) {
+      rotator.style.transform = transform;
+
+      return;
+    }
+
+    const binder =
+      bindingContainer.querySelector<HTMLElement>(".demo-ring-binder");
+
+    const contentLayers = [
+      ...bindingContainer.querySelectorAll<HTMLElement>(
+        ".archive-scan-content",
+      ),
+    ];
+
+    for (const element of contentLayers) {
+      element.style.removeProperty("transform");
+      element.style.removeProperty("transform-origin");
+    }
+
+    if (binder) {
+      binder.style.removeProperty("transform");
+      binder.style.removeProperty("transform-origin");
+    }
+
+    if (!angle) {
+      return;
+    }
+
+    const targets = binder ? [...contentLayers, binder] : contentLayers;
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    const containerRect = bindingContainer.getBoundingClientRect();
+
+    const originX = containerRect.left + containerRect.width / 2;
+
+    const originY = containerRect.top + containerRect.height / 2;
+
+    for (const target of targets) {
+      const rect = target.getBoundingClientRect();
+
+      target.style.transformOrigin = `${originX - rect.left}px ${originY - rect.top}px`;
+
+      target.style.transform = transform;
+    }
+  }
+
+  /*
+   * The page count scales the fold depth onto the curl and stacks
+   * sheet edges at the fore-edges. The default of 8 reproduces
+   * the original look exactly.
+   */
+  function applyPageCount(): void {
+    if (!bindingContainer) {
+      return;
+    }
+
+    const curlFactor = 0.75 + pageCount / 32;
 
     bindingContainer.style.setProperty(
       "--demo-curl-half",
-      `${style.width / 2}px`,
+      `${(24 * curlFactor).toFixed(1)}px`,
     );
 
     bindingContainer.style.setProperty(
-      "--demo-curl-edge",
-      String(clamp(style.darkness * 0.36)),
-    );
-
-    bindingContainer.style.setProperty(
-      "--demo-curl-mid",
-      String(clamp(style.darkness)),
-    );
-
-    bindingContainer.style.setProperty(
-      "--demo-curl-core",
-      String(clamp(style.darkness * 1.07)),
-    );
-
-    bindingContainer.style.setProperty(
-      "--demo-curl-light-1",
-      String(clamp(style.highlight * 3.5)),
-    );
-
-    bindingContainer.style.setProperty(
-      "--demo-curl-light-2",
-      String(clamp(style.highlight * 1.6)),
+      "--demo-block-depth",
+      `${Math.min(27, 3 + pageCount)}px`,
     );
   }
 
@@ -1276,17 +1453,11 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     const seed = seedInput.value.trim() || preset;
 
     const enhancement =
-      enhancementSelect.value as ArchivePageOptions["enhancement"];
+      enhancementSelect.value as CourseReaderPageOptions["enhancement"];
 
     const resolved = presets.resolve(preset);
 
     intendedTone = resolved.tone;
-
-    unlockedJitter.left = resolved.capture.rotationJitter;
-
-    unlockedJitter.right = resolved.capture.rotationJitter;
-
-    bindingSign = (hashSeed(`${seed}:binding`) / 4294967296) * 2 - 1;
 
     const ringTop = ringBinderToggle.checked;
 
@@ -1294,13 +1465,15 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       arrangeSpread();
 
       pages = [
-        archiveScan(firstSheet, {
+        courseReader(firstSheet, {
           preset,
           seed: `${seed}:verso`,
           enhancement,
 
           overrides: {
-            capture: ringTop ? { rotation: 0, rotationJitter: 0 } : undefined,
+            capture: ringTop
+              ? { rotation: 0, rotationJitter: 0, perspective: 0 }
+              : { rotation: pageRotation.left, rotationJitter: 0 },
 
             tone: {
               mode: "continuous",
@@ -1309,7 +1482,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
             },
 
             border: {
-              enabled: true,
+              enabled: frameToggle.checked,
               sides: {
                 right: false,
                 top: true,
@@ -1318,13 +1491,15 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
           },
         }),
 
-        archiveScan(secondSheet, {
+        courseReader(secondSheet, {
           preset,
           seed: `${seed}:recto`,
           enhancement,
 
           overrides: {
-            capture: ringTop ? { rotation: 0, rotationJitter: 0 } : undefined,
+            capture: ringTop
+              ? { rotation: 0, rotationJitter: 0, perspective: 0 }
+              : { rotation: pageRotation.right, rotationJitter: 0 },
 
             tone: {
               mode: "continuous",
@@ -1333,7 +1508,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
             },
 
             border: {
-              enabled: true,
+              enabled: frameToggle.checked,
               sides: {
                 left: false,
                 top: true,
@@ -1363,16 +1538,18 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       arrangeSingle();
 
       pages = [
-        archiveScan(firstSheet, {
+        courseReader(firstSheet, {
           preset,
           seed,
           enhancement,
 
           overrides: {
-            capture: ringTop ? { rotation: 0, rotationJitter: 0 } : undefined,
+            capture: ringTop
+              ? { rotation: 0, rotationJitter: 0, perspective: 0 }
+              : { rotation: pageRotation.left, rotationJitter: 0 },
 
             border: {
-              enabled: true,
+              enabled: frameToggle.checked,
               sides: {
                 left: !ringTop,
               },
@@ -1384,9 +1561,15 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     applyBinding(ringTop);
 
-    applyBindingStyle();
+    applyPageCount();
 
     applyBindingTilt();
+
+    toneBeforeDither = captureTone();
+
+    if (ditheredGrayToggle.checked) {
+      applyDitheredGray();
+    }
 
     syncSliders();
     syncSpreadTone();
@@ -1437,7 +1620,23 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   layoutSelect.addEventListener("change", () => createPages());
 
-  bindingStyleSelect.addEventListener("change", () => applyBindingStyle());
+  pageCountSlider.addEventListener("input", () => {
+    pageCount = Number(pageCountSlider.value);
+
+    pageCountOutput.textContent = String(pageCount);
+
+    applyPageCount();
+
+    shared.pageCount = pageCount;
+
+    shared.refreshViewer?.();
+  });
+
+  pageCountSlider.addEventListener("change", () => {
+    shared.pageCount = pageCount;
+
+    shared.refreshViewer?.();
+  });
 
   /*
    * Toggling the binder only touches the head frame, the page
@@ -1447,29 +1646,33 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
   ringBinderToggle.addEventListener("change", () => {
     const ringTop = ringBinderToggle.checked;
 
-    const baseRotation = presets.resolve(presetSelect.value).capture.rotation;
+    const basePerspective = presets.resolve(presetSelect.value).capture
+      .perspective;
 
     const sideUpdate =
       layoutSelect.value === "spread" ? { top: true } : { left: !ringTop };
 
     for (const [index, page] of pages.entries()) {
       page.update({
-        border: { sides: sideUpdate },
+        border: { enabled: frameToggle.checked, sides: sideUpdate },
 
         capture: ringTop
-          ? { rotation: 0, rotationJitter: 0 }
+          ? { rotation: 0, rotationJitter: 0, perspective: 0 }
           : {
-              rotation: baseRotation,
-
-              rotationJitter:
+              rotation:
                 index === 1 && layoutSelect.value === "spread"
-                  ? unlockedJitter.right
-                  : unlockedJitter.left,
+                  ? pageRotation.right
+                  : pageRotation.left,
+
+              rotationJitter: 0,
+
+              perspective: basePerspective,
             },
       });
     }
 
     applyBinding(ringTop);
+    applyPageCount();
     applyBindingTilt();
     syncSliders();
     updateReadout();
@@ -1492,6 +1695,24 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     updateReadout();
     syncDeskBindingWidth();
+  });
+
+  /*
+   * The checkbox owns the tone while it is checked: the gray
+   * levels, threshold and dither sliders are disabled and the
+   * previous tone returns when it is switched off again.
+   */
+  ditheredGrayToggle.addEventListener("change", () => {
+    if (ditheredGrayToggle.checked) {
+      toneBeforeDither = captureTone();
+
+      applyDitheredGray();
+    } else {
+      restoreDitheredGray();
+    }
+
+    syncSliders();
+    updateReadout();
   });
 
   destroyButton.addEventListener("click", () => {
@@ -1583,27 +1804,28 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     slider.input.addEventListener("input", () => {
       const value = Number(slider.input.value);
 
-      slider.output.textContent =
-        slider.input.id === "control-levels"
+      slider.output.textContent = slider.input.id.startsWith("control-rotation")
+        ? `${value.toFixed(2)}°`
+        : slider.input.id === "control-levels"
           ? String(levelsFromPosition(value))
-          : slider.input.value;
+          : String(value);
 
       if (slider.input.id === "control-rotation-left") {
+        pageRotation.left = value;
+
         if (ringBinderToggle.checked) {
           applyBindingTilt();
         } else {
-          unlockedJitter.left = value;
-
           pages[0]?.update({
-            capture: { rotationJitter: value },
+            capture: { rotation: value, rotationJitter: 0 },
           });
         }
       } else if (slider.input.id === "control-rotation-right") {
-        if (layoutSelect.value === "spread" && !ringBinderToggle.checked) {
-          unlockedJitter.right = value;
+        pageRotation.right = value;
 
+        if (layoutSelect.value === "spread" && !ringBinderToggle.checked) {
           pages[1]?.update({
-            capture: { rotationJitter: value },
+            capture: { rotation: value, rotationJitter: 0 },
           });
         }
       } else if (
@@ -1645,7 +1867,8 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
       seed: seedInput.value.trim() || presetSelect.value,
 
-      enhancement: enhancementSelect.value as ArchivePageOptions["enhancement"],
+      enhancement:
+        enhancementSelect.value as CourseReaderPageOptions["enhancement"],
 
       overrides: {
         ...settings,
@@ -1661,15 +1884,9 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     const ring = ringBinderToggle.checked;
 
-    const bindingStyle = bindingStyleSelect.value;
-
-    shared.setViewerBinding?.(
-      ring
-        ? "ring-top"
-        : bindingStyle === "spine"
-          ? "deep-bound-volume"
-          : bindingStyle,
-    );
+    if (ring) {
+      shared.setViewerBinding?.("ring-top");
+    }
 
     shared.refreshViewer?.();
     shared.showViewerTab?.();
@@ -1718,9 +1935,15 @@ function initViewerControls(shared: PlaygroundShared): () => void {
   const gutterSelect =
     document.querySelector<HTMLSelectElement>("#viewer-gutter")!;
 
-  let viewer: ArchiveViewer | null = null;
+  let viewer: CourseReaderViewer | null = null;
 
   function buildLayouts(gutter: string | false): ResponsiveLayout[] {
+    /*
+     * The page count scales the gutter depth onto the viewer's
+     * spine, matching the desk's fold scaling.
+     */
+    const curlFactor = 0.75 + shared.pageCount / 32;
+
     return [
       {
         query: "(max-width: 767px)",
@@ -1735,7 +1958,13 @@ function initViewerControls(shared: PlaygroundShared): () => void {
         mode: "spread",
         pageFit: "contain",
         gap: 0,
-        gutter,
+        gutter: gutter
+          ? {
+              ...bindings.get(gutter),
+
+              width: Math.max(8, bindings.get(gutter).width * curlFactor),
+            }
+          : false,
         background: "#222",
 
         spread: {
@@ -1817,7 +2046,7 @@ function initViewerControls(shared: PlaygroundShared): () => void {
         ? ringOverrides
         : undefined;
 
-    viewer = createArchiveViewer("#reader", {
+    viewer = createCourseReaderViewer("#reader", {
       pages: VIEWER_PAGE_SELECTORS,
 
       preset: config?.preset ?? "microfilm-journal",
@@ -2052,6 +2281,7 @@ export function createPlayground(
 
   const shared: PlaygroundShared = {
     viewerConfig: null,
+    pageCount: 8,
     refreshViewer: null,
     setViewerBinding: null,
     showViewerTab: null,

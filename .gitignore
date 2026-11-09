@@ -1,3 +1,4 @@
 dist
 node_modules
 src/ts/*.generated.ts
+Notes.md

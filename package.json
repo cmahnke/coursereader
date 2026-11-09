@@ -41,7 +41,8 @@
     "typecheck": "npm run build:styles && tsc --noEmit",
     "validate": "npm run lint && npm run lint:styles && npm run typecheck && npm run playground:typecheck",
     "prepack": "npm run build:all",
-    "prepublishOnly": "npm run validate"
+    "prepublishOnly": "npm run validate",
+    "docs": "typedoc"
   },
   "keywords": [
     "archive",
@@ -67,6 +68,7 @@
     "rimraf": "^6.1.4",
     "stylelint": "^18.0.0",
     "stylelint-config-standard": "^41.0.0",
+    "typedoc": "^0.28.20",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.24.0",
     "vite": "^8.3.6"

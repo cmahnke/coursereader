@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Archive Scan
+ * CourseReader
  *
  * Dependency-free live-DOM renderer.
  *

@@ -248,7 +248,7 @@ export type PresetMap = Record<string, PresetDefinition>;
 /**
  * Options for creating a single archive page.
  */
-export interface ArchivePageOptions {
+export interface CourseReaderPageOptions {
   /**
    * Name of the preset to resolve. Defaults to `"clean"`.
    */
@@ -278,9 +278,9 @@ export interface ArchivePageOptions {
 }
 
 /**
- * Handle returned by `createArchivePage`.
+ * Handle returned by `createCourseReaderPage`.
  */
-export interface ArchivePage {
+export interface CourseReaderPage {
   /**
    * Wrapper element inserted into the document.
    */
@@ -386,7 +386,7 @@ export interface ResponsiveLayout {
 /**
  * Options for creating a multi-page archive viewer.
  */
-export interface ArchiveViewerOptions {
+export interface CourseReaderViewerOptions {
   /**
    * Page elements or selectors, in reading order.
    */
@@ -434,9 +434,9 @@ export interface ArchiveViewerOptions {
 }
 
 /**
- * Handle returned by `createArchiveViewer`.
+ * Handle returned by `createCourseReaderViewer`.
  */
-export interface ArchiveViewer {
+export interface CourseReaderViewer {
   /**
    * Viewer wrapper element.
    */

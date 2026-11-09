@@ -373,7 +373,7 @@ function appendDitherStage(
  *
  * @example
  * ```ts
- * const page = createArchivePage("#document");
+ * const page = createCourseReaderPage("#document");
  *
  * document.body.append(
  *   createToneFilter(page.settings, 1971, "global-tone-filter"),

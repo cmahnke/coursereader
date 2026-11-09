@@ -3,13 +3,13 @@
  * ========================================================================== */
 
 import { bindings, builtInBindings, BindingRegistry } from "./bindings.js";
-import { createArchivePage } from "./page.js";
+import { createCourseReaderPage } from "./page.js";
 import { presets } from "./presets.js";
 import { installStyles } from "./styles.js";
 import type {
-  ArchivePage,
-  ArchiveViewer,
-  ArchiveViewerOptions,
+  CourseReaderPage,
+  CourseReaderViewer,
+  CourseReaderViewerOptions,
   GutterOptions,
   ResponsiveLayout,
 } from "./types.js";
@@ -88,7 +88,7 @@ function createGutter(
 }
 
 function createSlot(
-  page: ArchivePage | null,
+  page: CourseReaderPage | null,
   side: "single" | "left" | "right",
   gutter: GutterOptions | false,
 ): HTMLDivElement {
@@ -134,7 +134,7 @@ function createSlot(
 /**
  * Creates a responsive single-page or spread viewer.
  *
- * The viewer renders every page through {@link createArchivePage} and
+ * The viewer renders every page through {@link createCourseReaderPage} and
  * switches layouts as the supplied media queries match. Navigation
  * moves by one page in single mode and two pages in spread mode.
  *
@@ -145,7 +145,7 @@ function createSlot(
  *
  * @example
  * ```ts
- * const viewer = createArchiveViewer("#reader", {
+ * const viewer = createCourseReaderViewer("#reader", {
  *   pages: ["#page-1", "#page-2"],
  *   preset: "analog-gray-copy",
  *   layouts: [
@@ -155,10 +155,10 @@ function createSlot(
  * });
  * ```
  */
-export function createArchiveViewer(
+export function createCourseReaderViewer(
   target: HTMLElement | string,
-  options: ArchiveViewerOptions,
-): ArchiveViewer {
+  options: CourseReaderViewerOptions,
+): CourseReaderViewer {
   installStyles();
 
   const host = resolveElement(target);
@@ -180,7 +180,7 @@ export function createArchiveViewer(
   host.append(viewer);
 
   const renderedPages = sourcePages.map((source, index) =>
-    createArchivePage(source, {
+    createCourseReaderPage(source, {
       preset: options.preset,
       overrides: options.overrides,
       seed: `${options.seed ?? options.preset ?? "page"}:${index}`,

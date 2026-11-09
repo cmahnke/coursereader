@@ -21,6 +21,10 @@ It does not rasterize the webpage.
 The playground is deployed to GitHub Pages:
 <https://cmahnke.github.io/coursereader/>
 
+The API reference is generated from the JSDoc comments with TypeDoc
+and published next to it:
+<https://cmahnke.github.io/coursereader/docs/>
+
 ## Installation
 
 ```bash
@@ -34,9 +38,9 @@ tarballs also include the compiled playground at
 ## Quick start
 
 ```ts
-import { archiveScan } from "@projektemacher/coursereader";
+import { courseReader } from "@projektemacher/coursereader";
 
-const page = archiveScan("#document", {
+const page = courseReader("#document", {
   preset: "microfilm-journal",
   seed: 1971,
 });
@@ -88,12 +92,82 @@ page.update({
 Gutters and responsive layout are not part of scan presets. They belong
 to viewer layouts and gutter styles.
 
+## Custom presets
+
+A preset is plain JSON: a `DeepPartial<ScanSettings>` object that may
+inherit another preset with `extends`. Save it as a file next to your
+app:
+
+```json
+{
+  "extends": "analog-gray-copy",
+  "exposure": {
+    "contrast": 1.6
+  },
+  "tone": {
+    "mode": "quantized",
+    "levels": 4,
+    "dither": "random",
+    "ditherAmount": 0.6
+  }
+}
+```
+
+A single JSON document can also hold a map of presets:
+
+```json
+{
+  "newsprint": {
+    "extends": "analog-gray-copy",
+    "artifacts": { "grain": 0.35 }
+  },
+
+  "blueprint": {
+    "extends": "digital-gray-copy",
+    "paper": { "tone": 0.72 }
+  }
+}
+```
+
+Register the presets in your app before creating pages or viewers —
+the `preset` option refers to the registered name:
+
+```ts
+import { presets } from "@projektemacher/coursereader";
+
+// A single-definition file needs an explicit name:
+await presets.fromUrl("./presets/newsprint.json", "newsprint");
+
+// A map file registers every entry:
+await presets.fromUrl("./presets/office.json");
+
+// Both also work with plain fetch and the registry directly:
+const response = await fetch("./presets/office.json");
+
+presets.import(await response.json());
+```
+
+Then reference the preset by name:
+
+```ts
+courseReader("#document", {
+  preset: "newsprint",
+});
+```
+
+`presets.fromUrl()` fetches the document over HTTP, registers it and
+returns the loaded preset names. Unknown or circular preset names
+throw when they are resolved.
+
+Presets can also be defined in code, as shown in
+[Defining presets in code](#defining-presets-in-code).
+
 ## Enhancement modes
 
 `enhancement` selects the rendering strategy:
 
 ```ts
-archiveScan("#document", {
+courseReader("#document", {
   preset: "analog-gray-copy",
   enhancement: "auto",
 });
@@ -132,7 +206,7 @@ does not depend on a canvas or generated image.
 Bitonal mode produces an SVG-filtered black-and-white representation:
 
 ```ts
-archiveScan("#document", {
+courseReader("#document", {
   preset: "early-office-bitonal",
 
   overrides: {
@@ -170,7 +244,7 @@ text are unchanged.
 Restrict the visible output to a fixed number of gray levels:
 
 ```ts
-archiveScan("#document", {
+courseReader("#document", {
   preset: "analog-gray-copy",
 
   overrides: {
@@ -201,7 +275,7 @@ Random-looking dithering uses seeded SVG turbulence before thresholding
 or quantization:
 
 ```ts
-archiveScan("#document", {
+courseReader("#document", {
   preset: "analog-gray-copy",
   seed: "document-12-page-4",
 
@@ -221,7 +295,7 @@ implementations can still differ slightly, so this is deterministic
 configuration rather than guaranteed pixel-identical output across all
 browsers.
 
-## Custom presets
+## Defining presets in code
 
 Presets are plain serializable configuration objects:
 
@@ -253,7 +327,7 @@ presets.define("library-copy", {
 Use the custom preset:
 
 ```ts
-archiveScan("#document", {
+courseReader("#document", {
   preset: "library-copy",
   seed: 42,
 });
@@ -296,13 +370,13 @@ presets.import({
 
 ## Responsive viewer
 
-`createArchiveViewer` renders multiple pages and switches between
+`createCourseReaderViewer` renders multiple pages and switches between
 single-page and spread layouts as media queries match.
 
 ```ts
-import { createArchiveViewer } from "@projektemacher/coursereader";
+import { createCourseReaderViewer } from "@projektemacher/coursereader";
 
-const viewer = createArchiveViewer("#reader", {
+const viewer = createCourseReaderViewer("#reader", {
   pages: ["#page-1", "#page-2", "#page-3", "#page-4"],
 
   preset: "microfilm-journal",
@@ -427,28 +501,38 @@ playground.destroy();
 Options include `title`, `subtitle`, `sampleDocument`,
 `sampleDocumentRight`, `viewerPages` and `sections`.
 
+The rendered demo exposes its own controls: tone and artifact sliders,
+preset, seed and enhancement selects, a frame toggle and a ring-binder
+toggle. In spread mode, "Pages per side" stacks extra sheets at the
+fore-edges and deepens the spine fold (1–16 sheets), the rotation
+sliders tilt each sheet manually in both directions, and the
+"Grayscale dithering" toggle reproduces every gray tone as random
+black dots through stochastic screening.
+
 ## API overview
 
-| Export                                   | Purpose                                          |
-| ---------------------------------------- | ------------------------------------------------ |
-| `createArchivePage(source, options)`     | Wrap an attached element in the scan effect      |
-| `archiveScan`                            | Alias for `createArchivePage`                    |
-| `createArchiveViewer(target, options)`   | Render a responsive single-page or spread viewer |
-| `createPlayground(target, options)`      | Render the demo playground                       |
-| `createToneFilter(settings, seed, id)`   | Build a standalone SVG tone filter               |
-| `createToneTable(settings, sampleCount)` | Build an SVG component-transfer table            |
-| `presets` / `PresetRegistry`             | Manage and resolve named scan presets            |
-| `bindings` / `BindingRegistry`           | Manage named gutter styles                       |
-| `builtInPresets`, `builtInBindings`      | Built-in definitions                             |
-| `defaultSettings`                        | Baseline `ScanSettings`                          |
-| `ScanSettings`                           | Complete scan and reproduction settings          |
-| `ArchivePageOptions`, `ArchivePage`      | Page options and handle                          |
-| `ArchiveViewerOptions`, `ArchiveViewer`  | Viewer options and handle                        |
-| `ResponsiveLayout`, `GutterOptions`      | Layout and gutter configuration                  |
-| `PlaygroundOptions`, `PlaygroundHandle`  | Playground options and handle                    |
+| Export                                            | Purpose                                          |
+| ------------------------------------------------- | ------------------------------------------------ |
+| `createCourseReaderPage(source, options)`         | Wrap an attached element in the scan effect      |
+| `courseReader`                                    | Alias for `createCourseReaderPage`               |
+| `createCourseReaderViewer(target, options)`       | Render a responsive single-page or spread viewer |
+| `createPlayground(target, options)`               | Render the demo playground                       |
+| `createToneFilter(settings, seed, id)`            | Build a standalone SVG tone filter               |
+| `createToneTable(settings, sampleCount)`          | Build an SVG component-transfer table            |
+| `presets` / `PresetRegistry`                      | Manage and resolve named scan presets            |
+| `bindings` / `BindingRegistry`                    | Manage named gutter styles                       |
+| `builtInPresets`, `builtInBindings`               | Built-in definitions                             |
+| `defaultSettings`                                 | Baseline `ScanSettings`                          |
+| `ScanSettings`                                    | Complete scan and reproduction settings          |
+| `CourseReaderPageOptions`, `CourseReaderPage`     | Page options and handle                          |
+| `CourseReaderViewerOptions`, `CourseReaderViewer` | Viewer options and handle                        |
+| `ResponsiveLayout`, `GutterOptions`               | Layout and gutter configuration                  |
+| `PlaygroundOptions`, `PlaygroundHandle`           | Playground options and handle                    |
 
 All public factories and types carry JSDoc with parameter, return and
-error documentation.
+error documentation. The full reference is generated with TypeDoc and
+published on GitHub Pages:
+<https://cmahnke.github.io/coursereader/docs/>
 
 ## Development
 
@@ -471,6 +555,7 @@ npm run format:check         # Check formatting
 npm run dev                  # Start the playground at localhost:5173
 npm run playground:dev       # Start the playground at localhost:5173
 npm run playground:build
+npm run docs                 # Generate the TypeDoc API reference
 ```
 
 The library CSS lives in `src/css/styles.css` and

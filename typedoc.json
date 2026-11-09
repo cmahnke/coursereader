@@ -1,0 +1,10 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/ts/index.ts"],
+  "out": "playground/dist/docs",
+  "name": "Coursereader API",
+  "includeVersion": true,
+  "readme": "none",
+  "excludeInternal": true,
+  "githubPages": true
+}

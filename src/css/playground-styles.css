@@ -548,16 +548,33 @@ input:focus-visible {
   background-repeat: repeat-x;
 }
 
-/* Ring binder mode for the playground desk: the comb sits
-   inside the page's top frame band, so the separate binder
-   zone collapses when a frame is present. */
+/* Ring binder mode for the playground desk: the fixed outer
+   frame surrounds the complete view, and the rotating stage
+   carries the page stages, sheets, fold and binder inside it. */
 .demo-spread.ring-top {
   position: relative;
-  padding-top: 46px;
+  padding: var(--demo-frame-thickness, 24px);
+  background: var(--demo-frame-color, #1a1a1a);
 }
 
-.archive-scan-viewer.demo-ring-top.ring-framed,
-.demo-spread.ring-top.ring-framed {
+.demo-spread-viewport,
+.demo-spread-rotator {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.demo-spread-rotator {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.demo-spread.ring-top .demo-spread-viewport {
+  overflow: hidden;
+}
+
+.archive-scan-viewer.demo-ring-top.ring-framed {
   padding-top: 0;
 }
 
@@ -767,21 +784,21 @@ input:focus-visible {
    The strips anchor to the sheet edge — sliding under a copier
    frame when one surrounds the sheet — so the block belongs to
    the pages, not to the frame. */
-.demo-sheet-verso > .archive-scan-page::before,
-.demo-sheet-recto > .archive-scan-page::after {
+.demo-sheet-verso .archive-scan-content::before,
+.demo-sheet-recto .archive-scan-content::after {
   content: "";
   position: absolute;
-  width: 11px;
+  top: 0;
+  bottom: 0;
+  width: var(--demo-block-depth, 11px);
   border-radius: 2px;
   z-index: 1;
   box-shadow: 0 2px 9px rgb(0 0 0 / 35%);
 }
 
-.demo-sheet-verso > .archive-scan-page::before {
-  top: var(--archive-frame-top, 0);
-  bottom: var(--archive-frame-bottom, 0);
-  right: calc(100% - var(--archive-frame-left, 0px) - 3px);
-  transform: skewY(1.5deg) rotate(var(--archive-rotation, 0deg));
+.demo-sheet-verso .archive-scan-content::before {
+  left: calc(3px - var(--demo-block-depth, 11px));
+  transform: skewY(1.5deg);
   background:
     linear-gradient(
       90deg,
@@ -798,11 +815,9 @@ input:focus-visible {
     );
 }
 
-.demo-sheet-recto > .archive-scan-page::after {
-  top: var(--archive-frame-top, 0);
-  bottom: var(--archive-frame-bottom, 0);
-  left: calc(100% - var(--archive-frame-right, 0px) - 3px);
-  transform: skewY(-1.5deg) rotate(var(--archive-rotation, 0deg));
+.demo-sheet-recto .archive-scan-content::after {
+  right: calc(3px - var(--demo-block-depth, 11px));
+  transform: skewY(-1.5deg);
   background:
     linear-gradient(
       270deg,
@@ -824,19 +839,19 @@ input:focus-visible {
    stays contained to the book, terminates at the sheet's head
    and tail, and covers the wedges that per-page rotation opens
    at the seam. */
-.demo-spread .demo-sheet-verso > .archive-scan-page::after,
-.demo-spread .demo-sheet-recto > .archive-scan-page::before {
+.demo-spread .demo-sheet-verso .archive-scan-content::after,
+.demo-spread .demo-sheet-recto .archive-scan-content::before {
   content: "";
   position: absolute;
-  top: var(--archive-frame-top, 0);
-  bottom: var(--archive-frame-bottom, 0);
+  top: 0;
+  bottom: 0;
   width: var(--demo-curl-half, 24px);
   z-index: 5;
   pointer-events: none;
   filter: blur(2px);
 }
 
-.demo-spread .demo-sheet-verso > .archive-scan-page::after {
+.demo-spread .demo-sheet-verso .archive-scan-content::after {
   right: 0;
   background:
     linear-gradient(
@@ -855,7 +870,7 @@ input:focus-visible {
     );
 }
 
-.demo-spread .demo-sheet-recto > .archive-scan-page::before {
+.demo-spread .demo-sheet-recto .archive-scan-content::before {
   left: 0;
   background:
     linear-gradient(

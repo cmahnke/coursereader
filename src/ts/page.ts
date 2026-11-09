@@ -11,8 +11,8 @@ import {
 import { presets } from "./presets.js";
 import { installStyles } from "./styles.js";
 import type {
-  ArchivePage,
-  ArchivePageOptions,
+  CourseReaderPage,
+  CourseReaderPageOptions,
   DeepPartial,
   ScanSettings,
 } from "./types.js";
@@ -188,7 +188,7 @@ function createShinethru(source: HTMLElement): HTMLDivElement {
  * Wraps an attached element in a live archive-scan treatment.
  *
  * The original element stays in the document and remains selectable
- * and interactive. Call {@link ArchivePage.destroy} on the returned
+ * and interactive. Call {@link CourseReaderPage.destroy} on the returned
  * handle to restore it.
  *
  * @param source - The element to wrap, or a selector for it.
@@ -198,16 +198,16 @@ function createShinethru(source: HTMLElement): HTMLDivElement {
  *
  * @example
  * ```ts
- * const page = createArchivePage("#document", {
+ * const page = createCourseReaderPage("#document", {
  *   preset: "microfilm-journal",
  *   seed: 1971,
  * });
  * ```
  */
-export function createArchivePage(
+export function createCourseReaderPage(
   source: HTMLElement | string,
-  options: ArchivePageOptions = {},
-): ArchivePage {
+  options: CourseReaderPageOptions = {},
+): CourseReaderPage {
   installStyles();
 
   const content = resolveElement(source);
@@ -562,8 +562,8 @@ export function createArchivePage(
 }
 
 /**
- * Alias for applications that prefer the original function name.
+ * Alias for applications that prefer the library name.
  *
- * @see createArchivePage
+ * @see createCourseReaderPage
  */
-export const archiveScan = createArchivePage;
+export const courseReader = createCourseReaderPage;
