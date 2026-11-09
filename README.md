@@ -80,7 +80,7 @@ page.update({
 
 | Preset                 | Appearance                                                    |
 | ---------------------- | ------------------------------------------------------------- |
-| `clean`                | Neutral defaults with no visible degradation                  |
+| `clean`                | Neutral defaults with only the copier frame visible           |
 | `book-photo`           | Photographed book page with mild rotation and uneven lighting |
 | `bound-volume`         | `book-photo` with higher contrast and edge wear               |
 | `microfilm-journal`    | Heavy grain, scratches, streaks and a dark frame              |

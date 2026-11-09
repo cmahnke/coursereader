@@ -62,7 +62,7 @@ export const defaultSettings: ScanSettings = {
   },
 
   border: {
-    enabled: false,
+    enabled: true,
     darkness: 0.9,
     thickness: 24,
     roughness: 0.25,
@@ -85,7 +85,7 @@ export const defaultSettings: ScanSettings = {
  */
 export const builtInPresets: PresetMap = {
   /**
-   * Neutral defaults with no visible degradation.
+   * Neutral defaults with only the copier frame visible.
    */
   clean: {},
 
