@@ -23,6 +23,7 @@
   "scripts": {
     "build": "npm run build:styles && tsc",
     "build:styles": "node scripts/generate-styles.mjs",
+    "clean": "rimraf dist playground/dist",
     "playground:dev": "vite playground",
     "playground:build": "vite build playground",
     "playground:preview": "vite preview playground",
@@ -59,6 +60,7 @@
     "eslint-config-prettier": "^10.1.0",
     "postcss-html": "^2.0.0",
     "prettier": "^3.5.0",
+    "rimraf": "^6.1.4",
     "stylelint": "^18.0.0",
     "stylelint-config-standard": "^41.0.0",
     "typescript": "^5.7.0",
