@@ -5,7 +5,7 @@
     "rootDir": "..",
     "types": ["vite/client", "node"],
     "paths": {
-      "@projektemacher/coursepack": ["../src/index.ts"]
+      "@projektemacher/coursereader": ["../src/ts/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "vite.config.ts"]

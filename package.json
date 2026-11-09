@@ -1,5 +1,5 @@
 {
-  "name": "@projektemacher/coursepack",
+  "name": "@projektemacher/coursereader",
   "version": "0.1.0",
   "description": "Dependency-free DOM, CSS, and SVG archival scan and photocopy effects.",
   "type": "module",
@@ -18,10 +18,12 @@
   },
   "files": [
     "dist",
+    "playground/dist",
     "README.md"
   ],
   "scripts": {
     "build": "npm run build:styles && tsc",
+    "build:all": "npm run build && npm run playground:build",
     "build:styles": "node scripts/generate-styles.mjs",
     "clean": "rimraf dist playground/dist",
     "playground:dev": "vite playground",
@@ -34,10 +36,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "lint:styles": "stylelint \"src/**/*.css\" \"playground/index.html\"",
+    "lint:styles": "stylelint \"src/css/**/*.css\" \"playground/index.html\"",
     "typecheck": "npm run build:styles && tsc --noEmit",
     "validate": "npm run lint && npm run lint:styles && npm run typecheck && npm run playground:typecheck",
-    "prepublishOnly": "npm run validate && npm run build"
+    "prepack": "npm run build:all",
+    "prepublishOnly": "npm run validate"
   },
   "keywords": [
     "archive",

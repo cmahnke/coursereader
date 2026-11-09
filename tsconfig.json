@@ -4,7 +4,7 @@
     "module": "ES2020",
     "moduleResolution": "Bundler",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "rootDir": "src",
+    "rootDir": "src/ts",
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "useDefineForClassFields": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/ts/**/*.ts"]
 }

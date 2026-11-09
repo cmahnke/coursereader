@@ -1,6 +1,6 @@
-# Coursepack
+# Coursereader
 
-Coursepack is a dependency-free TypeScript library that makes live HTML
+Coursereader is a dependency-free TypeScript library that makes live HTML
 resemble photocopies, microfilm, archival scans, photographed books, and
 degraded reproductions.
 
@@ -24,15 +24,17 @@ The playground is deployed to GitHub Pages:
 ## Installation
 
 ```bash
-npm install @projektemacher/coursepack
+npm install @projektemacher/coursereader
 ```
 
-The package is ESM-only and ships TypeScript declarations.
+The package is ESM-only and ships TypeScript declarations. Published
+tarballs also include the compiled playground at
+`playground/dist/index.html`.
 
 ## Quick start
 
 ```ts
-import { archiveScan } from "@projektemacher/coursepack";
+import { archiveScan } from "@projektemacher/coursereader";
 
 const page = archiveScan("#document", {
   preset: "microfilm-journal",
@@ -224,7 +226,7 @@ browsers.
 Presets are plain serializable configuration objects:
 
 ```ts
-import { presets } from "@projektemacher/coursepack";
+import { presets } from "@projektemacher/coursereader";
 
 presets.define("library-copy", {
   extends: "analog-gray-copy",
@@ -298,7 +300,7 @@ presets.import({
 single-page and spread layouts as media queries match.
 
 ```ts
-import { createArchiveViewer } from "@projektemacher/coursepack";
+import { createArchiveViewer } from "@projektemacher/coursereader";
 
 const viewer = createArchiveViewer("#reader", {
   pages: ["#page-1", "#page-2", "#page-3", "#page-4"],
@@ -348,7 +350,7 @@ to tear the viewer down.
 Register a reusable binding style through `bindings`:
 
 ```ts
-import { bindings } from "@projektemacher/coursepack";
+import { bindings } from "@projektemacher/coursereader";
 
 bindings.define("library-binding", {
   width: 40,
@@ -408,7 +410,7 @@ An inline gutter configuration is also supported:
 live demo: tabs, controls, sample sheets and a multi-page viewer.
 
 ```ts
-import { createPlayground } from "@projektemacher/coursepack";
+import { createPlayground } from "@projektemacher/coursereader";
 
 const playground = createPlayground("#app", {
   title: "Archive Scan",
@@ -462,6 +464,7 @@ Useful commands:
 
 ```bash
 npm run build                # Generate embedded styles and compile to dist/
+npm run build:all            # Build the library and the playground
 npm run validate             # ESLint, Stylelint, library and playground typechecks
 npm run format               # Prettier
 npm run format:check         # Check formatting
@@ -469,17 +472,17 @@ npm run playground:dev       # Start the playground at localhost:5173
 npm run playground:build
 ```
 
-The library CSS lives in `src/styles.css` and
-`src/playground-styles.css`. `scripts/generate-styles.mjs` embeds it into
-ignored `*.generated.ts` modules during `prepare`, `build` and
-`typecheck`. While editing styles, run `npm run watch:styles` to keep the
-generated modules up to date.
+The library CSS lives in `src/css/styles.css` and
+`src/css/playground-styles.css`. `scripts/generate-styles.mjs` embeds it
+into ignored `src/ts/*.generated.ts` modules during `prepare`, `build`
+and `typecheck`. While editing styles, run `npm run watch:styles` to
+keep the generated modules up to date.
 
 ### Project layout
 
 ```text
-src/                   Library source and public types
-src/*.css              Stylesheet sources embedded at build time
+src/ts/                Library TypeScript source and public types
+src/css/               Stylesheet sources embedded at build time
 scripts/               Style generation script
 playground/            Vite playground and live demo
 .github/workflows/     Validation and GitHub Pages workflows

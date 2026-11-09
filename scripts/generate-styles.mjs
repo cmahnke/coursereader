@@ -7,13 +7,13 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const stylesheets = [
   {
-    source: "src/styles.css",
-    target: "src/styles.generated.ts",
+    source: "src/css/styles.css",
+    target: "src/ts/styles.generated.ts",
     exportName: "coreStyles",
   },
   {
-    source: "src/playground-styles.css",
-    target: "src/playground-styles.generated.ts",
+    source: "src/css/playground-styles.css",
+    target: "src/ts/playground-styles.generated.ts",
     exportName: "playgroundStyles",
   },
 ];

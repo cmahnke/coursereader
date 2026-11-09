@@ -34,11 +34,11 @@ jobs:
             exit 1
           fi
       - run: npm run validate
-      - run: npm run build
+      - run: npm run build:all
       - name: Publish to npm
         run: |
           version="$(node -p "require('./package.json').version")"
-          if npm view "@projektemacher/coursepack@$version" version >/dev/null 2>&1; then
+          if npm view "@projektemacher/coursereader@$version" version >/dev/null 2>&1; then
             echo "Version $version is already published to npm, skipping"
           else
             npm publish --access public --ignore-scripts
@@ -47,6 +47,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm pkg set name="@cmahnke/coursepack"
+          npm pkg set name="@cmahnke/coursereader"
           npm config set //npm.pkg.github.com/:_authToken="$NODE_AUTH_TOKEN"
           npm publish --access public --ignore-scripts --registry=https://npm.pkg.github.com

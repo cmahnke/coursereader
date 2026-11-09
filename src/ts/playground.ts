@@ -469,7 +469,7 @@ const VIEWER_TOOLBAR_MARKUP = `
 `;
 
 function shellMarkup(options: PlaygroundOptions): string {
-  const title = options.title ?? "@projektemacher/coursepack";
+  const title = options.title ?? "@projektemacher/coursereader";
 
   const subtitle =
     options.subtitle ??

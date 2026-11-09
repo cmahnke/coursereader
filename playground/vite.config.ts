@@ -8,23 +8,25 @@ import { defineConfig } from "vite";
  * against the current source without a prior `tsc` build, and the dev
  * server hot-reloads on library edits.
  */
-const coursepackRoot = fileURLToPath(new URL("..", import.meta.url));
+const coursereaderRoot = fileURLToPath(new URL("..", import.meta.url));
 
 export default defineConfig({
   base: "./",
 
   server: {
     fs: {
-      // Permit serving the aliased library source from coursepack/src.
-      allow: [coursepackRoot],
+      // Permit serving the aliased library source from coursereader/src/ts.
+      allow: [coursereaderRoot],
     },
   },
 
   resolve: {
     alias: [
       {
-        find: "@projektemacher/coursepack",
-        replacement: fileURLToPath(new URL("../src/index.ts", import.meta.url)),
+        find: "@projektemacher/coursereader",
+        replacement: fileURLToPath(
+          new URL("../src/ts/index.ts", import.meta.url),
+        ),
       },
     ],
   },

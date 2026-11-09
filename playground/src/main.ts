@@ -1,3 +1,3 @@
-import { createPlayground } from "@projektemacher/coursepack";
+import { createPlayground } from "@projektemacher/coursereader";
 
 createPlayground("#app");
