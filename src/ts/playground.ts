@@ -101,6 +101,8 @@ const VIEWER_PAGE_SELECTORS = [
   "#viewer-page-4",
 ];
 
+const RING_FRAME_TOP = 72;
+
 interface ViewerConfig {
   preset: string;
   seed: string | number;
@@ -135,6 +137,174 @@ function positionFromLevels(levels: number): number {
   const safe = Math.max(2, Math.min(256, levels));
 
   return (Math.log2(safe) - 1) / 7;
+}
+
+function frameInset(
+  page: HTMLElement,
+  side: "top" | "right" | "bottom" | "left",
+): number {
+  return (
+    Number.parseFloat(page.style.getPropertyValue(`--archive-frame-${side}`)) ||
+    0
+  );
+}
+
+function offsetWithin(
+  element: HTMLElement,
+  ancestor: HTMLElement,
+  axis: "left" | "top" = "left",
+): number {
+  let offset = 0;
+
+  let node: HTMLElement | null = element;
+
+  while (node && node !== ancestor) {
+    offset += axis === "left" ? node.offsetLeft : node.offsetTop;
+
+    node = node.offsetParent as HTMLElement | null;
+  }
+
+  if (node === ancestor) {
+    return offset;
+  }
+
+  const elementRect = element.getBoundingClientRect();
+
+  const ancestorRect = ancestor.getBoundingClientRect();
+
+  return axis === "left"
+    ? elementRect.left - ancestorRect.left
+    : elementRect.top - ancestorRect.top;
+}
+
+interface BindingBounds {
+  paperLeft: number;
+  paperTop: number;
+  paperWidth: number;
+}
+
+function sheetBounds(container: HTMLElement): BindingBounds | null {
+  const pages = [
+    ...container.querySelectorAll<HTMLElement>(".archive-scan-page"),
+  ];
+
+  if (pages.length === 0) {
+    return null;
+  }
+
+  const edges = pages.map((page) => {
+    const left = offsetWithin(page, container, "left");
+
+    const top = offsetWithin(page, container, "top");
+
+    return {
+      paperLeft: left + frameInset(page, "left"),
+      paperRight: left + page.offsetWidth - frameInset(page, "right"),
+      paperTop: top + frameInset(page, "top"),
+    };
+  });
+
+  const paperLeft = Math.min(...edges.map((edge) => edge.paperLeft));
+
+  return {
+    paperLeft,
+    paperTop: Math.min(...edges.map((edge) => edge.paperTop)),
+    paperWidth: Math.max(...edges.map((edge) => edge.paperRight)) - paperLeft,
+  };
+}
+
+function clearBinderLayout(binder: HTMLElement): void {
+  for (const property of [
+    "left",
+    "right",
+    "width",
+    "top",
+    "height",
+    "--binder-ring-gap",
+  ]) {
+    binder.style.removeProperty(property);
+  }
+}
+
+function positionBinder(binder: HTMLElement, bounds: BindingBounds): void {
+  const ringCount = Math.max(1, Math.round(bounds.paperWidth / 56));
+
+  binder.style.left = `${Math.round(bounds.paperLeft)}px`;
+  binder.style.right = "auto";
+  binder.style.width = `${Math.round(bounds.paperWidth)}px`;
+  binder.style.top = `${Math.max(0, Math.round(bounds.paperTop - 56))}px`;
+  binder.style.removeProperty("height");
+
+  binder.style.setProperty(
+    "--binder-ring-gap",
+    `${(bounds.paperWidth / ringCount).toFixed(3)}px`,
+  );
+}
+
+function equalizePageHeights(pages: HTMLElement[]): void {
+  if (pages.length < 2) {
+    return;
+  }
+
+  const target = (side: "top" | "bottom"): number =>
+    Math.max(...pages.map((page) => frameInset(page, side)));
+
+  const top = target("top");
+
+  const bottom = target("bottom");
+
+  for (const page of pages) {
+    const stage = page.querySelector<HTMLElement>(".archive-scan-stage");
+
+    if (!stage) {
+      continue;
+    }
+
+    if (Math.abs(frameInset(page, "top") - top) > 0.05) {
+      page.style.setProperty("--archive-frame-top", `${top.toFixed(1)}px`);
+
+      stage.style.setProperty("padding-top", `${top.toFixed(1)}px`);
+    }
+
+    if (Math.abs(frameInset(page, "bottom") - bottom) > 0.05) {
+      page.style.setProperty(
+        "--archive-frame-bottom",
+        `${bottom.toFixed(1)}px`,
+      );
+
+      stage.style.setProperty("padding-bottom", `${bottom.toFixed(1)}px`);
+    }
+  }
+}
+
+function prepareRingFrame(pages: HTMLElement[]): boolean {
+  if (pages.length === 0) {
+    return false;
+  }
+
+  const framed = pages.some((page) =>
+    (["top", "right", "bottom", "left"] as const).some(
+      (side) => frameInset(page, side) > 0,
+    ),
+  );
+
+  if (!framed) {
+    return false;
+  }
+
+  for (const page of pages) {
+    const top = Math.max(frameInset(page, "top"), RING_FRAME_TOP);
+
+    page.style.setProperty("--archive-frame-top", `${top.toFixed(1)}px`);
+
+    page
+      .querySelector<HTMLElement>(".archive-scan-stage")
+      ?.style.setProperty("padding-top", `${top.toFixed(1)}px`);
+  }
+
+  equalizePageHeights(pages);
+
+  return true;
 }
 
 /* ==========================================================================
@@ -972,6 +1142,45 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
       container.style.removeProperty("transform");
     }
+
+    syncDeskBindingWidth();
+  }
+
+  function syncDeskBindingWidth(): void {
+    if (!bindingContainer) {
+      return;
+    }
+
+    const binder =
+      bindingContainer.querySelector<HTMLDivElement>(".demo-ring-binder");
+
+    if (!binder) {
+      return;
+    }
+
+    if (!bindingContainer.classList.contains("ring-top")) {
+      bindingContainer.classList.remove("ring-framed");
+
+      clearBinderLayout(binder);
+
+      return;
+    }
+
+    const pages = [
+      ...bindingContainer.querySelectorAll<HTMLElement>(".archive-scan-page"),
+    ];
+
+    const framed = prepareRingFrame(pages);
+
+    bindingContainer.classList.toggle("ring-framed", framed);
+
+    const bounds = sheetBounds(bindingContainer);
+
+    if (!bounds) {
+      return;
+    }
+
+    positionBinder(binder, bounds);
   }
 
   /*
@@ -1103,7 +1312,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
               enabled: true,
               sides: {
                 right: false,
-                top: !ringTop,
+                top: true,
               },
             },
           },
@@ -1127,7 +1336,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
               enabled: true,
               sides: {
                 left: false,
-                top: !ringTop,
+                top: true,
               },
             },
           },
@@ -1241,7 +1450,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     const baseRotation = presets.resolve(presetSelect.value).capture.rotation;
 
     const sideUpdate =
-      layoutSelect.value === "spread" ? { top: !ringTop } : { left: !ringTop };
+      layoutSelect.value === "spread" ? { top: true } : { left: !ringTop };
 
     for (const [index, page] of pages.entries()) {
       page.update({
@@ -1282,6 +1491,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     }
 
     updateReadout();
+    syncDeskBindingWidth();
   });
 
   destroyButton.addEventListener("click", () => {
@@ -1414,6 +1624,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       }
 
       updateReadout();
+      syncDeskBindingWidth();
     });
   }
 
@@ -1463,6 +1674,18 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     shared.refreshViewer?.();
     shared.showViewerTab?.();
   });
+
+  let bindingResizeTimer = 0;
+
+  window.addEventListener(
+    "resize",
+    () => {
+      window.clearTimeout(bindingResizeTimer);
+
+      bindingResizeTimer = window.setTimeout(syncDeskBindingWidth, 150);
+    },
+    listenerOptions,
+  );
 
   createPages();
 
@@ -1531,8 +1754,9 @@ function initViewerControls(shared: PlaygroundShared): () => void {
   }
 
   /*
-   * The binding spans the sheets, not the whole reader: measure
-   * the rendered page edges and clamp the rail to them.
+   * The comb spans the paper and sits inside the page's top
+   * frame: measure the paper edges, enlarge the top band to
+   * hold the comb, and show the frame around the whole view.
    */
   function syncBindingWidth(): void {
     if (!viewer) {
@@ -1546,39 +1770,29 @@ function initViewerControls(shared: PlaygroundShared): () => void {
       return;
     }
 
+    if (viewer.element.dataset.mode === "single") {
+      viewer.element.classList.remove("ring-framed");
+
+      clearBinderLayout(binder);
+
+      return;
+    }
+
     const pages = [
       ...viewer.element.querySelectorAll<HTMLElement>(".archive-scan-page"),
     ];
 
-    if (!pages.length) {
+    const framed = prepareRingFrame(pages);
+
+    viewer.element.classList.toggle("ring-framed", framed);
+
+    const bounds = sheetBounds(viewer.element);
+
+    if (!bounds) {
       return;
     }
 
-    const viewerRect = viewer.element.getBoundingClientRect();
-
-    if (viewer.element.dataset.mode === "single") {
-      binder.style.removeProperty("left");
-      binder.style.removeProperty("right");
-      binder.style.removeProperty("width");
-      binder.style.removeProperty("top");
-      binder.style.removeProperty("height");
-
-      return;
-    }
-
-    const left = Math.min(
-      ...pages.map((page) => page.getBoundingClientRect().left),
-    );
-
-    const right = Math.max(
-      ...pages.map((page) => page.getBoundingClientRect().right),
-    );
-
-    binder.style.left = `${Math.round(left - viewerRect.left)}px`;
-    binder.style.right = "auto";
-    binder.style.width = `${Math.round(right - left)}px`;
-    binder.style.removeProperty("top");
-    binder.style.removeProperty("height");
+    positionBinder(binder, bounds);
   }
 
   function createViewer(): void {
@@ -1591,7 +1805,6 @@ function initViewerControls(shared: PlaygroundShared): () => void {
 
     const ringOverrides = {
       capture: { rotation: 0, rotationJitter: 0 },
-      border: { sides: { top: false } },
     };
 
     /*

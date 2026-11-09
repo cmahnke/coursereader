@@ -287,6 +287,14 @@ input:focus-visible {
   line-height: 1.55;
 }
 
+/* Inside a scan the wrapper supplies the paper tone, so the
+   sample sheet itself stays transparent. An opaque sheet would
+   hide both the preset's paper tone and the show-through ghost,
+   which is painted behind the content. */
+.archive-scan-content > .paper {
+  background: transparent;
+}
+
 /* Lift the sheet off the desk so the page area — and a preset's black
    border frame — reads as part of the page, not the backdrop. */
 .demo-sheet-host > .archive-scan-page,
@@ -461,7 +469,7 @@ input:focus-visible {
 }
 
 .archive-scan-viewer.demo-ring-top {
-  padding-top: 42px;
+  padding-top: 46px;
 }
 
 /* Plastic comb binding: a moulded strip with rounded loops. The
@@ -477,23 +485,21 @@ input:focus-visible {
   pointer-events: none;
 
   /*
-   * The copier frame continues above the binding: a 20px dark
-   * band over the 26px plastic rail, so the black surround
-   * extends beyond the binder.
+   * The plastic comb spans the paper; the page's own copier
+   * frame surrounds it, so the binder carries only the rail
+   * and its grain.
    */
   background-image:
-    var(--binder-grain-image, none), linear-gradient(#1a1a1a, #1a1a1a),
+    var(--binder-grain-image, none),
     linear-gradient(#3f4246, #26282b 45%, #141518);
   background-size:
     320px 320px,
-    100% 20px,
     100% 26px;
   background-position:
     0 0,
-    50% 0,
     50% 100%;
-  background-repeat: repeat, no-repeat, no-repeat;
-  background-blend-mode: multiply, normal, normal;
+  background-repeat: repeat, no-repeat;
+  background-blend-mode: multiply, normal;
   border-top: none;
   border-bottom: 2px solid #0a0b0c;
 }
@@ -503,8 +509,8 @@ input:focus-visible {
   content: "";
   position: absolute;
   top: 56px;
-  left: 55px;
-  right: 55px;
+  left: 0;
+  right: 0;
   height: 14px;
   background-image: radial-gradient(
     circle at 50% 50%,
@@ -513,7 +519,7 @@ input:focus-visible {
     rgb(255 255 255 / 16%) 8px,
     transparent 9px
   );
-  background-size: 56px 14px;
+  background-size: var(--binder-ring-gap, 56px) 14px;
   background-repeat: repeat-x;
 }
 
@@ -522,32 +528,37 @@ input:focus-visible {
   content: "";
   position: absolute;
   top: 32px;
-  left: 55px;
-  right: 55px;
+  left: 0;
+  right: 0;
   height: 40px;
   background-image:
-    radial-gradient(circle at 28px 7px, #313437 9.6px, transparent 10.2px),
-    radial-gradient(circle at 28px 31px, #26292c 9.6px, transparent 10.2px),
+    radial-gradient(circle at 50% 7px, #313437 9.6px, transparent 10.2px),
+    radial-gradient(circle at 50% 31px, #26292c 9.6px, transparent 10.2px),
     linear-gradient(
       90deg,
-      transparent 0 18px,
-      #3a3d41 18px,
-      #26292c 21px,
-      #101214 28px,
-      #26292c 35px,
-      #3a3d41 38px,
-      transparent 38px 56px
+      transparent 0 calc(50% - 10px),
+      #3a3d41 calc(50% - 10px),
+      #26292c calc(50% - 7px),
+      #101214 50%,
+      #26292c calc(50% + 7px),
+      #3a3d41 calc(50% + 10px),
+      transparent calc(50% + 10px) 100%
     );
-  background-size: 56px 100%;
+  background-size: var(--binder-ring-gap, 56px) 100%;
   background-repeat: repeat-x;
 }
 
-/* Ring binder mode for the playground desk: the sheets hang
-   from a rail at the head, so the spine curl and fore-edge
-   stacks are suppressed and the top frame band is removed. */
+/* Ring binder mode for the playground desk: the comb sits
+   inside the page's top frame band, so the separate binder
+   zone collapses when a frame is present. */
 .demo-spread.ring-top {
   position: relative;
-  padding-top: 42px;
+  padding-top: 46px;
+}
+
+.archive-scan-viewer.demo-ring-top.ring-framed,
+.demo-spread.ring-top.ring-framed {
+  padding-top: 0;
 }
 
 /* Left binding for single-page mode: the comb runs down the
@@ -555,7 +566,7 @@ input:focus-visible {
 .demo-single-host.ring-left {
   position: relative;
   padding-top: 0;
-  padding-left: 42px;
+  padding-left: 46px;
 }
 
 .demo-single-host.ring-left .demo-ring-binder,

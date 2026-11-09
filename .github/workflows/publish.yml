@@ -6,16 +6,38 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-  packages: write
 
 concurrency:
   group: publish
   cancel-in-progress: false
 
 jobs:
-  publish:
+  validate:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify tag matches package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match package version $version"
+            exit 1
+          fi
+      - run: npm install
+      - run: npm run validate
+
+  publish-npm:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -25,15 +47,6 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm install
-      - name: Verify tag matches package version
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          version="$(node -p "require('./package.json').version")"
-          if [ "$tag" != "$version" ]; then
-            echo "::error::Release tag $GITHUB_REF_NAME does not match package version $version"
-            exit 1
-          fi
-      - run: npm run validate
       - run: npm run build:all
       - name: Publish to npm
         run: |
@@ -43,10 +56,32 @@ jobs:
           else
             npm publish --access public --ignore-scripts
           fi
+
+  publish-github-packages:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: "@cmahnke"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm install
+      - run: npm run build:all
       - name: Publish to GitHub Packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm pkg set name="@cmahnke/coursereader"
-          npm config set //npm.pkg.github.com/:_authToken="$NODE_AUTH_TOKEN"
-          npm publish --access public --ignore-scripts --registry=https://npm.pkg.github.com
+          version="$(node -p "require('./package.json').version")"
+          if npm view "@cmahnke/coursereader@$version" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
+            echo "Version $version is already published to GitHub Packages, skipping"
+          else
+            npm publish --access public --ignore-scripts --registry=https://npm.pkg.github.com
+          fi

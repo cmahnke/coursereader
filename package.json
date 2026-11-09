@@ -26,6 +26,7 @@
     "build:all": "npm run build && npm run playground:build",
     "build:styles": "node scripts/generate-styles.mjs",
     "clean": "rimraf dist playground/dist",
+    "dev": "vite playground",
     "playground:dev": "vite playground",
     "playground:build": "vite build playground",
     "playground:preview": "vite preview playground",

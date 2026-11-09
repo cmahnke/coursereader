@@ -468,6 +468,7 @@ npm run build:all            # Build the library and the playground
 npm run validate             # ESLint, Stylelint, library and playground typechecks
 npm run format               # Prettier
 npm run format:check         # Check formatting
+npm run dev                  # Start the playground at localhost:5173
 npm run playground:dev       # Start the playground at localhost:5173
 npm run playground:build
 ```

@@ -279,8 +279,8 @@
 
 .archive-scan-gutter {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: var(--archive-frame-top, 0);
+  bottom: var(--archive-frame-bottom, 0);
   z-index: 10;
   width: var(--gutter-width);
   pointer-events: none;

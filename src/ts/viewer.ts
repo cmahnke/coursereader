@@ -100,16 +100,32 @@ function createSlot(
 
   if (page) {
     slot.append(page.element);
+
+    /*
+     * The binding shadow belongs to the sheet, not to the slot:
+     * expose the page's copier frame insets so the gutter can
+     * stop at the sheet's head and tail instead of running on
+     * into the frame.
+     */
+    if (gutter && side !== "single") {
+      for (const inset of ["top", "bottom"] as const) {
+        const value = page.element.style.getPropertyValue(
+          `--archive-frame-${inset}`,
+        );
+
+        if (value) {
+          slot.style.setProperty(`--archive-frame-${inset}`, value);
+        }
+      }
+
+      slot.append(createGutter(side === "left" ? "right" : "left", gutter));
+    }
   } else {
     const empty = document.createElement("div");
 
     empty.className = "archive-scan-empty";
 
     slot.append(empty);
-  }
-
-  if (gutter && side !== "single") {
-    slot.append(createGutter(side === "left" ? "right" : "left", gutter));
   }
 
   return slot;
