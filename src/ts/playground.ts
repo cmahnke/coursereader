@@ -22,6 +22,7 @@ import type {
   CourseReaderViewer,
   DeepPartial,
   DitherMode,
+  PresetDefinition,
   ResponsiveLayout,
   ScanSettings,
   ToneMode,
@@ -1224,6 +1225,7 @@ const PANEL_MARKUP = `
 
   <button id="control-destroy" type="button">Destroy effect</button>
   <button id="control-to-viewer" type="button">Show in viewer</button>
+  <button id="control-download" type="button">Download preset</button>
 
   <fieldset>
     <legend>Resolved settings</legend>
@@ -1375,6 +1377,9 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   const toViewerButton =
     document.querySelector<HTMLButtonElement>("#control-to-viewer")!;
+
+  const downloadButton =
+    document.querySelector<HTMLButtonElement>("#control-download")!;
 
   const seedInput = document.querySelector<HTMLInputElement>("#control-seed")!;
 
@@ -1661,6 +1666,8 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     for (const runtime of runtimes) {
       runtime.input.disabled = disabled;
     }
+
+    downloadButton.disabled = disabled;
   }
 
   function destroyPages(): void {
@@ -2391,6 +2398,40 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     shared.refreshViewer?.();
     shared.showViewerTab?.();
+  });
+
+  /*
+   * Downloads the current configuration as a standalone JSON
+   * preset: the resolved settings with the tone the desk actually
+   * displays, so importing the file reproduces the view.
+   */
+  downloadButton.addEventListener("click", () => {
+    if (!pages.length) {
+      return;
+    }
+
+    const definition: PresetDefinition = {
+      ...pages[0].settings,
+
+      tone: captureTone(),
+    };
+
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(definition, null, 2)], {
+        type: "application/json",
+      }),
+    );
+
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = "coursereader-preset.json";
+
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   });
 
   let bindingResizeTimer = 0;
