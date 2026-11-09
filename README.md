@@ -507,7 +507,11 @@ toggle. In spread mode, "Pages per side" stacks extra sheets at the
 fore-edges and deepens the spine fold (1–16 sheets), the rotation
 sliders tilt each sheet manually in both directions, and the
 "Grayscale dithering" toggle reproduces every gray tone as random
-black dots through stochastic screening.
+black dots through stochastic screening. A collapsed "Advanced
+settings" section below the live overrides exposes every remaining
+`ScanSettings` option — paper tone and texture, the full exposure
+curve, ink erosion, all scan artifacts, capture handling and the
+copier frame's darkness, thickness, roughness and sides.
 
 ## API overview
 

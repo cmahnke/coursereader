@@ -21,8 +21,10 @@ import type {
   CourseReaderPageOptions,
   CourseReaderViewer,
   DeepPartial,
+  DitherMode,
   ResponsiveLayout,
   ScanSettings,
+  ToneMode,
 } from "./types.js";
 import { clamp, resolveElement } from "./utils.js";
 import { createCourseReaderViewer } from "./viewer.js";
@@ -120,12 +122,689 @@ interface PlaygroundShared {
   showViewerTab: (() => void) | null;
 }
 
-interface SliderDefinition {
-  input: HTMLInputElement;
-  output: HTMLOutputElement;
-  read(settings: ScanSettings): number;
-  apply(value: number): DeepPartial<ScanSettings>;
+/* ==========================================================================
+ * Control schema
+ *
+ * Every panel control is declared as data: markup is generated from
+ * the definitions, and the generic wiring in `initPlaygroundControls`
+ * drives them. Adding a setting to the panel is one table entry.
+ * ========================================================================== */
+
+/**
+ * Snapshot of the panel state a control definition may react to.
+ */
+interface PanelState {
+  layout: "single" | "spread";
+
+  ringBinder: boolean;
+
+  ditheredGray: boolean;
+
+  /**
+   * The tone settings the reproduction pipeline is meant to use.
+   * In facing-pages mode the pages render continuously and this
+   * carries the tone; in single-page mode it mirrors the pages.
+   */
+  intendedTone: ScanSettings["tone"];
+
+  rotationLeft: number;
+
+  rotationRight: number;
 }
+
+/**
+ * Runtime access a custom control input handler needs.
+ */
+interface InputContext {
+  pages(): CourseReaderPage[];
+
+  pageRotation: { left: number; right: number };
+
+  ringBinder(): boolean;
+
+  layout(): "single" | "spread";
+
+  applyBindingTilt(): void;
+}
+
+interface ControlBase {
+  id: string;
+
+  label: string;
+
+  hint: string;
+
+  /**
+   * Basic controls render in the panel body, advanced ones inside
+   * the collapsed "Advanced settings" disclosure.
+   */
+  tier: "basic" | "advanced";
+
+  /**
+   * Group heading inside the advanced disclosure. Required for
+   * advanced controls, ignored for basic ones.
+   */
+  group?: string;
+
+  /**
+   * Tone controls route through the spread overlay tone in
+   * facing-pages mode and are disabled while grayscale dithering
+   * owns the tone.
+   */
+  tone?: boolean;
+
+  disabled?(state: PanelState): boolean;
+}
+
+interface RangeControl extends ControlBase {
+  kind: "range";
+
+  min: number;
+
+  max: number;
+
+  step: number;
+
+  read(settings: ScanSettings, state: PanelState): number;
+
+  apply(value: number): DeepPartial<ScanSettings>;
+
+  /**
+   * Formats the output readout; defaults to the raw value.
+   */
+  format?(value: number): string;
+
+  /**
+   * When present, the hook fully owns applying the value and the
+   * default page update is skipped.
+   */
+  onInput?(value: number, context: InputContext): void;
+}
+
+interface ToggleControl extends ControlBase {
+  kind: "toggle";
+
+  read(settings: ScanSettings, state: PanelState): boolean;
+
+  apply(value: boolean): DeepPartial<ScanSettings>;
+}
+
+interface SelectControl extends ControlBase {
+  kind: "select";
+
+  options: Array<{ value: string; label: string }>;
+
+  read(settings: ScanSettings, state: PanelState): string;
+
+  apply(value: string): DeepPartial<ScanSettings>;
+}
+
+type ControlDefinition = RangeControl | ToggleControl | SelectControl;
+
+const ADVANCED_GROUPS: Array<{ key: string; heading: string }> = [
+  { key: "paper", heading: "Paper" },
+  { key: "exposure", heading: "Exposure" },
+  { key: "ink", heading: "Ink" },
+  { key: "tone", heading: "Tone" },
+  { key: "artifacts", heading: "Artifacts" },
+  { key: "capture", heading: "Capture" },
+  { key: "border", heading: "Border" },
+];
+
+const CONTROLS: ControlDefinition[] = [
+  {
+    kind: "range",
+    id: "control-contrast",
+    label: "Contrast",
+    hint: "Pushes midtones toward black or white as part of the exposure curve, before tone reduction.",
+    tier: "basic",
+    min: 0.5,
+    max: 2.5,
+    step: 0.05,
+    read: (settings) => settings.exposure.contrast,
+    apply: (value) => ({ exposure: { contrast: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-levels",
+    label: "Gray levels",
+    hint: "Limits the page to a fixed number of gray levels: 2 is pure black and white, 256 is effectively continuous. Moving it switches the page to quantized tone.",
+    tier: "basic",
+    tone: true,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    read: (settings, state) =>
+      state.layout === "spread"
+        ? positionFromLevels(state.intendedTone.levels)
+        : positionFromLevels(settings.tone.levels),
+    apply: (value) => ({
+      tone: {
+        mode: "quantized",
+        levels: levelsFromPosition(value),
+      },
+    }),
+    format: (value) => String(levelsFromPosition(value)),
+    disabled: (state) => state.ditheredGray,
+  },
+
+  {
+    kind: "range",
+    id: "control-threshold",
+    label: "Threshold",
+    hint: "The black point of two-tone output: pixels below the threshold turn black, above it white. Higher values produce more black. Moving it switches the page to bitonal tone.",
+    tier: "basic",
+    tone: true,
+    min: 0.3,
+    max: 0.9,
+    step: 0.01,
+    read: (settings, state) =>
+      state.layout === "spread"
+        ? state.intendedTone.threshold
+        : settings.tone.threshold,
+    apply: (value) => ({
+      tone: {
+        mode: "bitonal",
+        threshold: value,
+      },
+    }),
+    disabled: (state) => state.ditheredGray,
+  },
+
+  {
+    kind: "range",
+    id: "control-ink-spread",
+    label: "Ink spread",
+    hint: "Thickens dark marks, as if the toner gained weight on a well-used copier.",
+    tier: "basic",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.ink.spread,
+    apply: (value) => ({ ink: { spread: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-blur",
+    label: "Blur",
+    hint: "Soft-focus blur applied to the inked sheet before tone reduction, as if the scanner lens were slightly out of focus.",
+    tier: "basic",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.ink.blur,
+    apply: (value) => ({ ink: { blur: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-grain",
+    label: "Grain",
+    hint: "Fine toner and paper noise across the sheet.",
+    tier: "basic",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.grain,
+    apply: (value) => ({ artifacts: { grain: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-dither",
+    label: "Dither amount",
+    hint: "Random noise applied before tone reduction. It keeps detail alive in coarse gray levels.",
+    tier: "basic",
+    tone: true,
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings, state) =>
+      state.layout === "spread"
+        ? state.intendedTone.ditherAmount
+        : settings.tone.ditherAmount,
+    apply: (value) =>
+      value > 0
+        ? { tone: { dither: "random", ditherAmount: value } }
+        : { tone: { ditherAmount: 0 } },
+    disabled: (state) => state.ditheredGray,
+  },
+
+  {
+    kind: "range",
+    id: "control-rotation-left",
+    label: "Rotation — left page",
+    hint: "Manual rotation of the left (verso) sheet. The center is straight; sliding left or right sets the direction and angle. In facing-pages mode each page rotates independently.",
+    tier: "basic",
+    min: -ROTATION_RANGE,
+    max: ROTATION_RANGE,
+    step: 0.05,
+    read: (_settings, state) => state.rotationLeft,
+    apply: (value) => ({ capture: { rotation: value } }),
+    format: (value) => `${value.toFixed(2)}°`,
+    onInput: (value, context) => {
+      context.pageRotation.left = value;
+
+      if (context.ringBinder()) {
+        context.applyBindingTilt();
+
+        return;
+      }
+
+      context.pages()[0]?.update({ capture: { rotation: value } });
+    },
+  },
+
+  {
+    kind: "range",
+    id: "control-rotation-right",
+    label: "Rotation — right page",
+    hint: "Manual rotation of the right (recto) sheet. The center is straight; sliding left or right sets the direction and angle. In single-page mode the left setting applies.",
+    tier: "basic",
+    min: -ROTATION_RANGE,
+    max: ROTATION_RANGE,
+    step: 0.05,
+    read: (_settings, state) =>
+      state.layout === "spread" ? state.rotationRight : 0,
+    apply: (value) => ({ capture: { rotation: value } }),
+    format: (value) => `${value.toFixed(2)}°`,
+    disabled: (state) => state.layout !== "spread" || state.ringBinder,
+    onInput: (value, context) => {
+      context.pageRotation.right = value;
+
+      if (context.layout() === "spread" && !context.ringBinder()) {
+        context.pages()[1]?.update({ capture: { rotation: value } });
+      }
+    },
+  },
+
+  {
+    kind: "range",
+    id: "control-shinethru",
+    label: "Shine-through",
+    hint: "Mirrored ghost of the reverse side of the page showing through the sheet.",
+    tier: "basic",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.shineThrough,
+    apply: (value) => ({ artifacts: { shineThrough: value } }),
+  },
+
+  {
+    kind: "toggle",
+    id: "control-frame",
+    label: "Copier frame",
+    hint: "The dark surround of the copier bed captured around the sheet. In spreads the binding side is suppressed so facing pages meet at the spine.",
+    tier: "basic",
+    read: (settings) => settings.border.enabled,
+    apply: (value) => ({ border: { enabled: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-paper-tone",
+    label: "Paper tone",
+    hint: "Luminance of the paper base, independent of the exposure treatment.",
+    tier: "advanced",
+    group: "paper",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.paper.tone,
+    apply: (value) => ({ paper: { tone: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-paper-texture",
+    label: "Paper texture",
+    hint: "Subtle visual texture of the paper fibers.",
+    tier: "advanced",
+    group: "paper",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.paper.texture,
+    apply: (value) => ({ paper: { texture: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-brightness",
+    label: "Brightness",
+    hint: "Overall brightness multiplier in the exposure curve. 1 leaves the sheet unchanged.",
+    tier: "advanced",
+    group: "exposure",
+    min: 0.5,
+    max: 2,
+    step: 0.02,
+    read: (settings) => settings.exposure.brightness,
+    apply: (value) => ({ exposure: { brightness: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-gamma",
+    label: "Gamma",
+    hint: "Midtone response of the exposure curve. Below 1 darkens midtones, above 1 lightens them.",
+    tier: "advanced",
+    group: "exposure",
+    min: 0.5,
+    max: 2,
+    step: 0.02,
+    read: (settings) => settings.exposure.gamma,
+    apply: (value) => ({ exposure: { gamma: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-unevenness",
+    label: "Unevenness",
+    hint: "Uneven illumination across the sheet, like a copier lamp losing calibration.",
+    tier: "advanced",
+    group: "exposure",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.exposure.unevenness,
+    apply: (value) => ({ exposure: { unevenness: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-blown-highlights",
+    label: "Blown highlights",
+    hint: "Highlight clipping. Higher values turn more bright areas pure white.",
+    tier: "advanced",
+    group: "exposure",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.exposure.blownHighlights,
+    apply: (value) => ({ exposure: { blownHighlights: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-crushed-shadows",
+    label: "Crushed shadows",
+    hint: "Shadow clipping. Higher values turn more dark areas pure black.",
+    tier: "advanced",
+    group: "exposure",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.exposure.crushedShadows,
+    apply: (value) => ({ exposure: { crushedShadows: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-ink-erosion",
+    label: "Ink erosion",
+    hint: "Thins dark marks, as if the toner ran low and copies came out faint.",
+    tier: "advanced",
+    group: "ink",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.ink.erosion,
+    apply: (value) => ({ ink: { erosion: value } }),
+  },
+
+  {
+    kind: "select",
+    id: "control-tone-mode",
+    label: "Tone mode",
+    hint: "Tone reduction applied to the finished scan: continuous keeps every gray, quantized limits the palette, bitonal prints in pure black and white.",
+    tier: "advanced",
+    group: "tone",
+    tone: true,
+    options: [
+      { value: "continuous", label: "continuous" },
+      { value: "quantized", label: "quantized" },
+      { value: "bitonal", label: "bitonal" },
+    ],
+    read: (settings, state) =>
+      state.layout === "spread" ? state.intendedTone.mode : settings.tone.mode,
+    apply: (value) => ({ tone: { mode: value as ToneMode } }),
+    disabled: (state) => state.ditheredGray,
+  },
+
+  {
+    kind: "select",
+    id: "control-tone-dither",
+    label: "Dither pattern",
+    hint: "Noise pattern mixed into the sheet before tone reduction to keep banding from appearing in coarse tones.",
+    tier: "advanced",
+    group: "tone",
+    tone: true,
+    options: [
+      { value: "none", label: "none" },
+      { value: "random", label: "random" },
+    ],
+    read: (settings, state) =>
+      state.layout === "spread"
+        ? state.intendedTone.dither
+        : settings.tone.dither,
+    apply: (value) => ({ tone: { dither: value as DitherMode } }),
+    disabled: (state) => state.ditheredGray,
+  },
+
+  {
+    kind: "range",
+    id: "control-dust",
+    label: "Dust",
+    hint: "Density of dust specks caught on the glass.",
+    tier: "advanced",
+    group: "artifacts",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.dust,
+    apply: (value) => ({ artifacts: { dust: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-scratches",
+    label: "Scratches",
+    hint: "Density of scratches across the scan.",
+    tier: "advanced",
+    group: "artifacts",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.scratches,
+    apply: (value) => ({ artifacts: { scratches: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-bleedthrough",
+    label: "Bleed-through",
+    hint: "Ink from the reverse side bleeding through the paper.",
+    tier: "advanced",
+    group: "artifacts",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.bleedThrough,
+    apply: (value) => ({ artifacts: { bleedThrough: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-streaks",
+    label: "Vertical streaks",
+    hint: "Vertical streaks from a dirty copier glass or drum.",
+    tier: "advanced",
+    group: "artifacts",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.verticalStreaks,
+    apply: (value) => ({ artifacts: { verticalStreaks: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-bands",
+    label: "Horizontal bands",
+    hint: "Horizontal banding from a tired scanner or copier transport.",
+    tier: "advanced",
+    group: "artifacts",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.horizontalBands,
+    apply: (value) => ({ artifacts: { horizontalBands: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-edgenoise",
+    label: "Edge noise",
+    hint: "Noise and smudges along the sheet edges.",
+    tier: "advanced",
+    group: "artifacts",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.artifacts.edgeNoise,
+    apply: (value) => ({ artifacts: { edgeNoise: value } }),
+  },
+
+  {
+    kind: "toggle",
+    id: "control-grayscale",
+    label: "Grayscale",
+    hint: "Converts the content to grayscale before tone treatment.",
+    tier: "advanced",
+    group: "capture",
+    read: (settings) => settings.capture.grayscale,
+    apply: (value) => ({ capture: { grayscale: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-perspective",
+    label: "Perspective",
+    hint: "Keystone distortion, as if the sheet lay skewed on the glass.",
+    tier: "advanced",
+    group: "capture",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.capture.perspective,
+    apply: (value) => ({ capture: { perspective: value } }),
+    disabled: (state) => state.ringBinder,
+  },
+
+  {
+    kind: "range",
+    id: "control-rotation-jitter",
+    label: "Rotation jitter",
+    hint: "Seeded random misalignment added on top of the fixed rotation, different for every seed.",
+    tier: "advanced",
+    group: "capture",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.capture.rotationJitter,
+    apply: (value) => ({ capture: { rotationJitter: value } }),
+    disabled: (state) => state.ringBinder,
+  },
+
+  {
+    kind: "range",
+    id: "control-frame-darkness",
+    label: "Frame darkness",
+    hint: "Darkness of the copier frame band around the sheet.",
+    tier: "advanced",
+    group: "border",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.border.darkness,
+    apply: (value) => ({ border: { darkness: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-frame-thickness",
+    label: "Frame thickness",
+    hint: "Thickness of the copier frame band in pixels.",
+    tier: "advanced",
+    group: "border",
+    min: 0,
+    max: 60,
+    step: 1,
+    read: (settings) => settings.border.thickness,
+    apply: (value) => ({ border: { thickness: value } }),
+  },
+
+  {
+    kind: "range",
+    id: "control-frame-roughness",
+    label: "Frame roughness",
+    hint: "Irregularity of the frame edges.",
+    tier: "advanced",
+    group: "border",
+    min: 0,
+    max: 1,
+    step: 0.02,
+    read: (settings) => settings.border.roughness,
+    apply: (value) => ({ border: { roughness: value } }),
+  },
+
+  {
+    kind: "toggle",
+    id: "control-border-top",
+    label: "Frame — top side",
+    hint: "Whether the top edge of the sheet receives the copier frame.",
+    tier: "advanced",
+    group: "border",
+    read: (settings) => settings.border.sides.top,
+    apply: (value) => ({ border: { sides: { top: value } } }),
+  },
+
+  {
+    kind: "toggle",
+    id: "control-border-right",
+    label: "Frame — right side",
+    hint: "Whether the right edge of the sheet receives the copier frame.",
+    tier: "advanced",
+    group: "border",
+    read: (settings) => settings.border.sides.right,
+    apply: (value) => ({ border: { sides: { right: value } } }),
+  },
+
+  {
+    kind: "toggle",
+    id: "control-border-bottom",
+    label: "Frame — bottom side",
+    hint: "Whether the bottom edge of the sheet receives the copier frame.",
+    tier: "advanced",
+    group: "border",
+    read: (settings) => settings.border.sides.bottom,
+    apply: (value) => ({ border: { sides: { bottom: value } } }),
+  },
+
+  {
+    kind: "toggle",
+    id: "control-border-left",
+    label: "Frame — left side",
+    hint: "Whether the left edge of the sheet receives the copier frame.",
+    tier: "advanced",
+    group: "border",
+    read: (settings) => settings.border.sides.left,
+    apply: (value) => ({ border: { sides: { left: value } } }),
+  },
+];
 
 /* The gray-levels slider position maps exponentially to a
    level count from 2 (black and white) to 256 (continuous),
@@ -140,6 +819,110 @@ function positionFromLevels(levels: number): number {
   const safe = Math.max(2, Math.min(256, levels));
 
   return (Math.log2(safe) - 1) / 7;
+}
+
+function outputIdFor(control: ControlDefinition): string {
+  return `output-${control.id.replace(/^control-/, "")}`;
+}
+
+function controlTitleMarkup(control: ControlBase): string {
+  return `
+    <span class="demo-slider-title"
+      >${control.label}
+      <button
+        class="demo-info"
+        type="button"
+        aria-label="About ${control.label}"
+        aria-expanded="false"
+      >
+        i
+      </button>
+    </span>`;
+}
+
+function controlPopoverMarkup(control: ControlBase): string {
+  return `
+    <span class="demo-popover" role="tooltip"
+      >${control.hint}</span
+    >`;
+}
+
+function panelControlMarkup(id: string): string {
+  const control = CONTROLS.find((entry) => entry.id === id);
+
+  if (!control) {
+    throw new Error(`Unknown playground control: ${id}`);
+  }
+
+  if (control.kind === "range") {
+    return `
+    <label class="demo-slider">
+      ${controlTitleMarkup(control)}
+
+      <input
+        id="${control.id}"
+        type="range"
+        min="${control.min}"
+        max="${control.max}"
+        step="${control.step}"
+        value="0"
+      />
+
+      <output id="${outputIdFor(control)}">–</output>
+      ${controlPopoverMarkup(control)}
+    </label>`;
+  }
+
+  if (control.kind === "toggle") {
+    return `
+    <label class="demo-slider demo-toggle">
+      ${controlTitleMarkup(control)}
+
+      <input id="${control.id}" type="checkbox" />
+      ${controlPopoverMarkup(control)}
+    </label>`;
+  }
+
+  const options = control.options
+    .map((option) => `<option value="${option.value}">${option.label}</option>`)
+    .join("\n      ");
+
+  return `
+    <label class="demo-slider demo-select">
+      ${controlTitleMarkup(control)}
+
+      <select id="${control.id}">
+        ${options}
+      </select>
+      ${controlPopoverMarkup(control)}
+    </label>`;
+}
+
+function panelAdvancedMarkup(): string {
+  const groups = ADVANCED_GROUPS.map(({ key, heading }) => {
+    const controls = CONTROLS.filter(
+      (control) => control.tier === "advanced" && control.group === key,
+    )
+      .map((control) => panelControlMarkup(control.id))
+      .join("\n");
+
+    if (!controls) {
+      return "";
+    }
+
+    return `
+    <div class="demo-advanced-group">
+      <p class="demo-advanced-heading">${heading}</p>
+      ${controls}
+    </div>`;
+  }).join("\n");
+
+  return `
+    <details class="demo-advanced">
+      <summary>Advanced settings</summary>
+      <div class="demo-advanced-groups">${groups}
+      </div>
+    </details>`;
 }
 
 function frameInset(
@@ -382,146 +1165,13 @@ const PANEL_MARKUP = `
   <fieldset id="control-overrides">
     <legend>Live overrides (update)</legend>
 
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Contrast
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About contrast"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-contrast" type="range" min="0.5" max="2.5" step="0.05" />
-      <output id="output-contrast">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Pushes midtones toward black or white as part of the exposure
-        curve, before tone reduction.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Gray levels
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About gray levels"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-levels" type="range" min="0" max="1" step="0.01" />
-      <output id="output-levels">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Limits the page to a fixed number of gray levels: 2 is pure
-        black and white, 256 is effectively continuous. Moving it
-        switches the page to quantized tone.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Threshold
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About threshold"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-threshold" type="range" min="0.3" max="0.9" step="0.01" />
-      <output id="output-threshold">–</output>
-      <span class="demo-popover" role="tooltip"
-        >The black point of two-tone output: pixels below the threshold
-        turn black, above it white. Higher values produce more black.
-        Moving it switches the page to bitonal tone.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Ink spread
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About ink spread"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-ink-spread" type="range" min="0" max="1" step="0.02" />
-      <output id="output-ink-spread">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Thickens dark marks, as if the toner gained weight on a
-        well-used copier.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Blur
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About blur"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-blur" type="range" min="0" max="1" step="0.02" />
-      <output id="output-blur">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Soft-focus blur applied to the inked sheet before tone
-        reduction, as if the scanner lens were slightly out of focus.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Grain
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About grain"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-grain" type="range" min="0" max="1" step="0.02" />
-      <output id="output-grain">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Fine toner and paper noise across the sheet.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Dither amount
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About dither amount"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-dither" type="range" min="0" max="1" step="0.02" />
-      <output id="output-dither">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Random noise applied before tone reduction. It keeps detail
-        alive in coarse gray levels.</span
-      >
-    </label>
+    ${panelControlMarkup("control-contrast")}
+    ${panelControlMarkup("control-levels")}
+    ${panelControlMarkup("control-threshold")}
+    ${panelControlMarkup("control-ink-spread")}
+    ${panelControlMarkup("control-blur")}
+    ${panelControlMarkup("control-grain")}
+    ${panelControlMarkup("control-dither")}
 
     <label class="demo-slider demo-toggle">
       <span class="demo-slider-title"
@@ -544,101 +1194,10 @@ const PANEL_MARKUP = `
       >
     </label>
 
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Rotation — left page
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About left page rotation"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input
-        id="control-rotation-left"
-        type="range"
-        min="-${ROTATION_RANGE}"
-        max="${ROTATION_RANGE}"
-        step="0.05"
-        value="0"
-      />
-      <output id="output-rotation-left">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Manual rotation of the left (verso) sheet. The center is
-        straight; sliding left or right sets the direction and angle.
-        In facing-pages mode each page rotates independently.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Rotation — right page
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About right page rotation"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input
-        id="control-rotation-right"
-        type="range"
-        min="-${ROTATION_RANGE}"
-        max="${ROTATION_RANGE}"
-        step="0.05"
-        value="0"
-      />
-      <output id="output-rotation-right">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Manual rotation of the right (recto) sheet. The center is
-        straight; sliding left or right sets the direction and angle.
-        In single-page mode the left setting applies.</span
-      >
-    </label>
-
-    <label class="demo-slider">
-      <span class="demo-slider-title"
-        >Shine-through
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About shine-through"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-shinethru" type="range" min="0" max="1" step="0.02" />
-      <output id="output-shinethru">–</output>
-      <span class="demo-popover" role="tooltip"
-        >Mirrored ghost of the reverse side of the page showing through
-        the sheet.</span
-      >
-    </label>
-
-    <label class="demo-slider demo-toggle">
-      <span class="demo-slider-title"
-        >Copier frame
-        <button
-          class="demo-info"
-          type="button"
-          aria-label="About the copier frame"
-          aria-expanded="false"
-        >
-          i
-        </button>
-      </span>
-      <input id="control-frame" type="checkbox" checked />
-      <span class="demo-popover" role="tooltip"
-        >The dark surround of the copier bed captured around the sheet.
-        In spreads the binding side is suppressed so facing pages meet
-        at the spine.</span
-      >
-    </label>
+    ${panelControlMarkup("control-rotation-left")}
+    ${panelControlMarkup("control-rotation-right")}
+    ${panelControlMarkup("control-shinethru")}
+    ${panelControlMarkup("control-frame")}
 
     <label class="demo-slider demo-toggle">
       <span class="demo-slider-title"
@@ -659,6 +1218,8 @@ const PANEL_MARKUP = `
         treatment as the sheet.</span
       >
     </label>
+
+    ${panelAdvancedMarkup()}
   </fieldset>
 
   <button id="control-destroy" type="button">Destroy effect</button>
@@ -848,100 +1409,47 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
   const secondSheet =
     document.querySelector<HTMLElement>("#sample-document-2")!;
 
-  function requireSlider(
-    inputId: string,
-    outputId: string,
-    read: (settings: ScanSettings) => number,
-    apply: (value: number) => DeepPartial<ScanSettings>,
-  ): SliderDefinition {
-    const input = document.querySelector<HTMLInputElement>(`#${inputId}`)!;
+  interface ControlRuntime {
+    control: ControlDefinition;
 
-    const output = document.querySelector<HTMLOutputElement>(`#${outputId}`)!;
+    input: HTMLInputElement | HTMLSelectElement;
 
-    return { input, output, read, apply };
+    output: HTMLOutputElement | null;
   }
 
-  const sliders: SliderDefinition[] = [
-    requireSlider(
-      "control-contrast",
-      "output-contrast",
-      (settings) => settings.exposure.contrast,
-      (value) => ({ exposure: { contrast: value } }),
-    ),
+  const runtimes: ControlRuntime[] = [];
 
-    requireSlider(
-      "control-levels",
-      "output-levels",
-      (settings) => positionFromLevels(settings.tone.levels),
-      (value) => ({
-        tone: {
-          mode: "quantized",
-          levels: levelsFromPosition(value),
-        },
-      }),
-    ),
+  for (const control of CONTROLS) {
+    if (control.kind === "toggle") {
+      const input = document.querySelector<HTMLInputElement>(`#${control.id}`);
 
-    requireSlider(
-      "control-threshold",
-      "output-threshold",
-      (settings) => settings.tone.threshold,
-      (value) => ({
-        tone: {
-          mode: "bitonal",
-          threshold: value,
-        },
-      }),
-    ),
+      if (!input) {
+        continue;
+      }
 
-    requireSlider(
-      "control-ink-spread",
-      "output-ink-spread",
-      (settings) => settings.ink.spread,
-      (value) => ({ ink: { spread: value } }),
-    ),
+      runtimes.push({ control, input, output: null });
+    } else if (control.kind === "select") {
+      const input = document.querySelector<HTMLSelectElement>(`#${control.id}`);
 
-    requireSlider(
-      "control-blur",
-      "output-blur",
-      (settings) => settings.ink.blur,
-      (value) => ({ ink: { blur: value } }),
-    ),
+      if (!input) {
+        continue;
+      }
 
-    requireSlider(
-      "control-grain",
-      "output-grain",
-      (settings) => settings.artifacts.grain,
-      (value) => ({ artifacts: { grain: value } }),
-    ),
+      runtimes.push({ control, input, output: null });
+    } else {
+      const input = document.querySelector<HTMLInputElement>(`#${control.id}`);
 
-    requireSlider(
-      "control-dither",
-      "output-dither",
-      (settings) => settings.tone.ditherAmount,
-      (value) => ({ tone: { ditherAmount: value } }),
-    ),
+      const output = document.querySelector<HTMLOutputElement>(
+        `#${outputIdFor(control)}`,
+      );
 
-    requireSlider(
-      "control-rotation-left",
-      "output-rotation-left",
-      (settings) => settings.capture.rotation,
-      (value) => ({ capture: { rotation: value, rotationJitter: 0 } }),
-    ),
+      if (!input || !output) {
+        continue;
+      }
 
-    requireSlider(
-      "control-rotation-right",
-      "output-rotation-right",
-      (settings) => settings.capture.rotation,
-      (value) => ({ capture: { rotation: value, rotationJitter: 0 } }),
-    ),
-
-    requireSlider(
-      "control-shinethru",
-      "output-shinethru",
-      (settings) => settings.artifacts.shineThrough,
-      (value) => ({ artifacts: { shineThrough: value } }),
-    ),
-  ];
+      runtimes.push({ control, input, output });
+    }
+  }
 
   let pages: CourseReaderPage[] = [];
 
@@ -957,10 +1465,87 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   let pageCount = 8;
 
-  function rotationSliderValue(id: string): number {
-    const slider = sliders.find((entry) => entry.input.id === id);
+  function panelState(): PanelState {
+    return {
+      layout: layoutSelect.value === "spread" ? "spread" : "single",
 
-    return slider ? Number(slider.input.value) : 0;
+      ringBinder: ringBinderToggle.checked,
+
+      ditheredGray: ditheredGrayToggle.checked,
+
+      intendedTone: { ...intendedTone },
+
+      rotationLeft: pageRotation.left,
+
+      rotationRight: pageRotation.right,
+    };
+  }
+
+  const inputContext: InputContext = {
+    pages: () => pages,
+
+    pageRotation,
+
+    ringBinder: () => ringBinderToggle.checked,
+
+    layout: () => (layoutSelect.value === "spread" ? "spread" : "single"),
+
+    applyBindingTilt,
+  };
+
+  function applyControlValue(
+    control: ControlDefinition,
+    value: number | boolean | string,
+  ): DeepPartial<ScanSettings> {
+    if (control.kind === "range" && typeof value === "number") {
+      return control.apply(value);
+    }
+
+    if (control.kind === "toggle" && typeof value === "boolean") {
+      return control.apply(value);
+    }
+
+    if (control.kind === "select" && typeof value === "string") {
+      return control.apply(value);
+    }
+
+    return {};
+  }
+
+  function commitControl(
+    control: ControlDefinition,
+    value: number | boolean | string,
+  ): void {
+    const overrides = applyControlValue(control, value);
+
+    if (overrides.tone && control.tone) {
+      intendedTone = { ...intendedTone, ...overrides.tone };
+    }
+
+    if (!control.tone || layoutSelect.value !== "spread") {
+      for (const page of pages) {
+        page.update(overrides);
+      }
+    }
+
+    if (control.tone) {
+      syncSpreadTone();
+    }
+
+    updateReadout();
+    syncDeskBindingWidth();
+  }
+
+  function writeOutput(runtime: ControlRuntime): void {
+    if (runtime.control.kind !== "range" || !runtime.output) {
+      return;
+    }
+
+    const value = Number(runtime.input.value);
+
+    runtime.output.textContent = runtime.control.format
+      ? runtime.control.format(value)
+      : String(value);
   }
 
   /*
@@ -1032,34 +1617,6 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     }
   }
 
-  /*
-   * Tone sliders report the intended tone in facing-pages
-   * mode, because the pages themselves render continuously
-   * and the spread overlay carries the tone settings.
-   */
-  function sliderValue(
-    slider: SliderDefinition,
-    settings: ScanSettings,
-  ): number {
-    if (layoutSelect.value !== "spread") {
-      return slider.read(settings);
-    }
-
-    if (slider.input.id === "control-levels") {
-      return positionFromLevels(intendedTone.levels);
-    }
-
-    if (slider.input.id === "control-threshold") {
-      return intendedTone.threshold;
-    }
-
-    if (slider.input.id === "control-dither") {
-      return intendedTone.ditherAmount;
-    }
-
-    return slider.read(settings);
-  }
-
   function syncSliders(): void {
     if (!pages.length) {
       return;
@@ -1067,32 +1624,28 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     const settings = pages[0].settings;
 
-    frameToggle.checked = settings.border.enabled;
+    const state = panelState();
 
-    for (const slider of sliders) {
-      let value: number;
+    for (const runtime of runtimes) {
+      const control = runtime.control;
 
-      if (slider.input.id === "control-rotation-left") {
-        value = pageRotation.left;
-      } else if (slider.input.id === "control-rotation-right") {
-        slider.input.disabled =
-          layoutSelect.value !== "spread" || ringBinderToggle.checked;
+      runtime.input.disabled = Boolean(control.disabled?.(state));
 
-        value = layoutSelect.value === "spread" ? pageRotation.right : 0;
+      if (control.kind === "toggle") {
+        if (runtime.input instanceof HTMLInputElement) {
+          runtime.input.checked = control.read(settings, state);
+        }
+      } else if (control.kind === "select") {
+        runtime.input.value = control.read(settings, state);
       } else {
-        value = sliderValue(slider, settings);
+        const value = control.read(settings, state);
 
-        slider.input.disabled =
-          toneSliderIds.has(slider.input.id) && ditheredGrayToggle.checked;
-      }
+        runtime.input.value = String(value);
 
-      slider.input.value = String(value);
-
-      slider.output.textContent = slider.input.id.startsWith("control-rotation")
-        ? `${value.toFixed(2)}°`
-        : slider.input.id === "control-levels"
-          ? String(levelsFromPosition(value))
+        runtime.output!.textContent = control.format
+          ? control.format(value)
           : String(value);
+      }
     }
 
     pageCountSlider.value = String(pageCount);
@@ -1104,6 +1657,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   function setOverridesDisabled(disabled: boolean): void {
     overridesFieldset.disabled = disabled;
+
+    for (const runtime of runtimes) {
+      runtime.input.disabled = disabled;
+    }
   }
 
   function destroyPages(): void {
@@ -1368,7 +1925,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       return;
     }
 
-    const angle = rotationSliderValue("control-rotation-left");
+    const angle = pageRotation.left;
 
     const transform = angle ? `rotate(${angle.toFixed(3)}deg)` : "";
 
@@ -1686,21 +2243,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     createPages();
   });
 
-  frameToggle.addEventListener("change", () => {
-    for (const page of pages) {
-      page.update({
-        border: { enabled: frameToggle.checked },
-      });
-    }
-
-    updateReadout();
-    syncDeskBindingWidth();
-  });
-
   /*
-   * The checkbox owns the tone while it is checked: the gray
-   * levels, threshold and dither sliders are disabled and the
-   * previous tone returns when it is switched off again.
+   * The checkbox owns the tone while it is checked: the tone
+   * controls are disabled and the previous tone returns when it is
+   * switched off again.
    */
   ditheredGrayToggle.addEventListener("change", () => {
     if (ditheredGrayToggle.checked) {
@@ -1772,82 +2318,37 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     listenerOptions,
   );
 
-  function applyToneSlider(id: string, value: number): void {
-    if (id === "control-levels") {
-      intendedTone = {
-        ...intendedTone,
-        mode: "quantized",
-        levels: levelsFromPosition(value),
-      };
-    } else if (id === "control-threshold") {
-      intendedTone = {
-        ...intendedTone,
-        mode: "bitonal",
-        threshold: value,
-      };
-    } else if (id === "control-dither") {
-      intendedTone = {
-        ...intendedTone,
-        dither: value > 0 ? "random" : intendedTone.dither,
-        ditherAmount: value,
-      };
-    }
-  }
+  for (const runtime of runtimes) {
+    const control = runtime.control;
 
-  const toneSliderIds = new Set([
-    "control-levels",
-    "control-threshold",
-    "control-dither",
-  ]);
+    if (control.kind === "range") {
+      runtime.input.addEventListener("input", () => {
+        const value = Number(runtime.input.value);
 
-  for (const slider of sliders) {
-    slider.input.addEventListener("input", () => {
-      const value = Number(slider.input.value);
+        writeOutput(runtime);
 
-      slider.output.textContent = slider.input.id.startsWith("control-rotation")
-        ? `${value.toFixed(2)}°`
-        : slider.input.id === "control-levels"
-          ? String(levelsFromPosition(value))
-          : String(value);
+        if (control.onInput) {
+          control.onInput(value, inputContext);
 
-      if (slider.input.id === "control-rotation-left") {
-        pageRotation.left = value;
-
-        if (ringBinderToggle.checked) {
-          applyBindingTilt();
+          updateReadout();
+          syncDeskBindingWidth();
         } else {
-          pages[0]?.update({
-            capture: { rotation: value, rotationJitter: 0 },
-          });
+          commitControl(control, value);
         }
-      } else if (slider.input.id === "control-rotation-right") {
-        pageRotation.right = value;
-
-        if (layoutSelect.value === "spread" && !ringBinderToggle.checked) {
-          pages[1]?.update({
-            capture: { rotation: value, rotationJitter: 0 },
-          });
+      });
+    } else if (control.kind === "toggle") {
+      runtime.input.addEventListener("change", () => {
+        if (!(runtime.input instanceof HTMLInputElement)) {
+          return;
         }
-      } else if (
-        layoutSelect.value === "spread" &&
-        toneSliderIds.has(slider.input.id)
-      ) {
-        applyToneSlider(slider.input.id, value);
-      } else {
-        const overrides = slider.apply(value);
 
-        for (const page of pages) {
-          page.update(overrides);
-        }
-      }
-
-      if (toneSliderIds.has(slider.input.id)) {
-        syncSpreadTone();
-      }
-
-      updateReadout();
-      syncDeskBindingWidth();
-    });
+        commitControl(control, runtime.input.checked);
+      });
+    } else {
+      runtime.input.addEventListener("change", () => {
+        commitControl(control, runtime.input.value);
+      });
+    }
   }
 
   /*

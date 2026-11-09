@@ -245,6 +245,44 @@ input:focus-visible {
   text-align: right;
 }
 
+.demo-slider select {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+/* Collapsed advanced settings below the live overrides. */
+.demo-advanced {
+  margin-top: 0.75rem;
+}
+
+.demo-advanced summary {
+  color: var(--demo-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-advanced summary:hover {
+  color: var(--demo-ink);
+}
+
+.demo-advanced-group {
+  margin-top: 0.75rem;
+}
+
+.demo-advanced-group:first-child {
+  margin-top: 0.5rem;
+}
+
+.demo-advanced-heading {
+  margin: 0 0 0.55rem;
+  color: var(--demo-accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 #control-destroy,
 #control-to-viewer {
   width: 100%;
