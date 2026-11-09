@@ -1,0 +1,883 @@
+.demo-shell {
+  --demo-ink: #e8e6e3;
+  --demo-muted: #a5a29d;
+  --demo-accent: #8fb4a8;
+  --demo-panel: #2b2a28;
+  --demo-header: #201f1e;
+  --demo-desk: #46443f;
+  --demo-paper: #fdfcf9;
+
+  color-scheme: dark;
+  margin: 0;
+  min-height: 100%;
+  background: var(--demo-desk);
+  color: var(--demo-ink);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  line-height: 1.5;
+}
+
+.demo-shell,
+.demo-shell * {
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Header and tabs
+   ========================================================================== */
+
+.demo-header {
+  background: var(--demo-header);
+}
+
+.demo-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 0;
+}
+
+.demo-header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.demo-header p {
+  margin: 0.15rem 0 0;
+  color: var(--demo-muted);
+  font-size: 0.85rem;
+}
+
+.demo-tabs {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.demo-tab {
+  padding: 0.45rem 1.1rem;
+  border: 1px solid #4a4844;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: #2e2c2a;
+  color: var(--demo-muted);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.demo-tab[aria-pressed="true"] {
+  background: var(--demo-desk);
+  color: var(--demo-ink);
+  border-color: #6a675f;
+}
+
+.demo-tab:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--demo-accent);
+  outline-offset: 1px;
+}
+
+/* ==========================================================================
+   Sections
+   ========================================================================== */
+
+.is-hidden {
+  display: none !important;
+}
+
+#section-playground {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+#section-viewer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* ==========================================================================
+   Control panel
+   ========================================================================== */
+
+.demo-panel {
+  flex: 0 0 300px;
+  padding: 0.75rem;
+  border: 1px solid #44423e;
+  border-radius: 8px;
+  background: var(--demo-panel);
+}
+
+.demo-panel fieldset {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.75rem 0.75rem;
+  border: 1px solid #44423e;
+  border-radius: 6px;
+}
+
+.demo-panel legend {
+  padding: 0 0.35rem;
+  color: var(--demo-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-panel select,
+.demo-panel input[type="text"] {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #55524c;
+  border-radius: 4px;
+  background: #232220;
+  color: var(--demo-ink);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.demo-panel button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #55524c;
+  border-radius: 4px;
+  background: #3a3833;
+  color: var(--demo-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.demo-panel button:hover {
+  background: #45423c;
+}
+
+.demo-hint {
+  margin: 0.5rem 0 0;
+  color: var(--demo-muted);
+  font-size: 0.75rem;
+}
+
+.demo-hint code {
+  color: var(--demo-accent);
+}
+
+.demo-slider {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 0.5rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.8rem;
+}
+
+.demo-slider > .demo-slider-title {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  grid-column: 1 / -1;
+  color: var(--demo-muted);
+}
+
+.demo-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95rem;
+  height: 0.95rem;
+  padding: 0;
+  border: 1px solid #55524c;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--demo-muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.62rem;
+  font-style: italic;
+  line-height: 1;
+  cursor: help;
+}
+
+.demo-info:hover,
+.demo-info[aria-expanded="true"] {
+  border-color: var(--demo-accent);
+  color: var(--demo-accent);
+}
+
+.demo-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% - 0.2rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #55524c;
+  border-radius: 6px;
+  background: #1c1b1a;
+  color: #c7c3bc;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 45%);
+  pointer-events: none;
+}
+
+.demo-slider.is-open .demo-popover {
+  display: block;
+}
+
+.demo-slider output {
+  min-width: 2.5rem;
+  color: var(--demo-accent);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+#control-destroy,
+#control-to-viewer {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+#control-settings {
+  max-height: 240px;
+  margin: 0;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: #1c1b1a;
+  color: #c7c3bc;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  overflow: auto;
+}
+
+/* ==========================================================================
+   Desk and paper
+   ========================================================================== */
+
+.demo-desk {
+  display: flex;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 1.5rem 1rem;
+  border-radius: 8px;
+  background: var(--demo-desk);
+}
+
+.paper {
+  width: 100%;
+  max-width: 720px;
+  padding: 3rem 3.25rem;
+  background: var(--demo-paper);
+  color: #16150f;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  line-height: 1.55;
+}
+
+/* Lift the sheet off the desk so the page area — and a preset's black
+   border frame — reads as part of the page, not the backdrop. */
+.demo-sheet-host > .archive-scan-page,
+.demo-sheet-host > .paper,
+.archive-scan-slot > .archive-scan-page {
+  box-shadow:
+    0 12px 30px rgb(0 0 0 / 38%),
+    0 3px 8px rgb(0 0 0 / 26%);
+}
+
+.demo-toggle input {
+  accent-color: var(--demo-accent);
+}
+
+.paper h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.paper h2 {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.paper h3 {
+  margin: 1.25rem 0 0.4rem;
+  font-size: 1rem;
+}
+
+.paper-lede {
+  font-size: 1.02rem;
+}
+
+.paper a {
+  color: #1d3a8f;
+}
+
+/* Selection reads as an inversion — dark highlight, light text —
+   which survives every tone treatment, including bitonal. */
+.paper ::selection {
+  background: #101010;
+  color: #f6f6f6;
+}
+
+.paper ul {
+  padding-left: 1.4rem;
+}
+
+.paper blockquote {
+  margin: 1.5rem 0 0;
+  padding-left: 1rem;
+  border-left: 3px solid #b3ab98;
+  color: #3d3a30;
+  font-style: italic;
+}
+
+.paper table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.paper caption {
+  padding-bottom: 0.35rem;
+  color: #57544a;
+  font-size: 0.85rem;
+  font-style: italic;
+  text-align: left;
+}
+
+.paper th,
+.paper td {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #9a948a;
+  text-align: left;
+}
+
+.paper-figure {
+  margin: 1.25rem 0;
+}
+
+.paper-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #9a948a;
+}
+
+.paper-figure figcaption {
+  margin-top: 0.35rem;
+  color: #57544a;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.paper-form fieldset {
+  margin: 0;
+  padding: 0.9rem 1rem 1.1rem;
+  border: 1px solid #9a948a;
+  border-radius: 3px;
+}
+
+.paper-form legend {
+  padding: 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+.paper-form label {
+  display: block;
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.9rem;
+}
+
+.paper-form input[type="text"],
+.paper-form input[type="number"],
+.paper-form select {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #8a857b;
+  border-radius: 2px;
+  background: #fff;
+  color: #16150f;
+  font: inherit;
+}
+
+.paper-checkbox {
+  display: flex !important;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.paper-form button {
+  margin-top: 0.9rem;
+  padding: 0.4rem 1.1rem;
+  border: 1px solid #55524a;
+  border-radius: 2px;
+  background: #e4e0d6;
+  color: #16150f;
+  font: inherit;
+  cursor: pointer;
+}
+
+.paper-kicker {
+  margin: 2.5rem 0 0;
+  letter-spacing: 0.22em;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.viewer-imprint {
+  margin-top: 2.5rem;
+  color: #57544a;
+  font-style: italic;
+}
+
+.viewer-page-cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Ring binder along the top: a metal rail with punched holes
+   and rings dipping over the sheets' top edge. */
+.demo-reader .archive-scan-viewer {
+  position: relative;
+}
+
+.archive-scan-viewer.demo-ring-top {
+  padding-top: 42px;
+}
+
+/* Plastic comb binding: a moulded strip with rounded loops. The
+   muted plastic tones read as part of the copy rather than as a
+   physical binder photographed on top of it. */
+.demo-ring-binder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 46px;
+  z-index: 20;
+  pointer-events: none;
+
+  /*
+   * The copier frame continues above the binding: a 20px dark
+   * band over the 26px plastic rail, so the black surround
+   * extends beyond the binder.
+   */
+  background-image:
+    var(--binder-grain-image, none), linear-gradient(#1a1a1a, #1a1a1a),
+    linear-gradient(#3f4246, #26282b 45%, #141518);
+  background-size:
+    320px 320px,
+    100% 20px,
+    100% 26px;
+  background-position:
+    0 0,
+    50% 0,
+    50% 100%;
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-blend-mode: multiply, normal, normal;
+  border-top: none;
+  border-bottom: 2px solid #0a0b0c;
+}
+
+/* Punched holes just below the rail */
+.demo-ring-binder::before {
+  content: "";
+  position: absolute;
+  top: 56px;
+  left: 55px;
+  right: 55px;
+  height: 14px;
+  background-image: radial-gradient(
+    circle at 50% 50%,
+    #141518 6px,
+    rgb(0 0 0 / 70%) 7px,
+    rgb(255 255 255 / 16%) 8px,
+    transparent 9px
+  );
+  background-size: 56px 14px;
+  background-repeat: repeat-x;
+}
+
+/* Rounded plastic comb loops through the holes */
+.demo-ring-binder::after {
+  content: "";
+  position: absolute;
+  top: 32px;
+  left: 55px;
+  right: 55px;
+  height: 40px;
+  background-image:
+    radial-gradient(circle at 28px 7px, #313437 9.6px, transparent 10.2px),
+    radial-gradient(circle at 28px 31px, #26292c 9.6px, transparent 10.2px),
+    linear-gradient(
+      90deg,
+      transparent 0 18px,
+      #3a3d41 18px,
+      #26292c 21px,
+      #101214 28px,
+      #26292c 35px,
+      #3a3d41 38px,
+      transparent 38px 56px
+    );
+  background-size: 56px 100%;
+  background-repeat: repeat-x;
+}
+
+/* Ring binder mode for the playground desk: the sheets hang
+   from a rail at the head, so the spine curl and fore-edge
+   stacks are suppressed and the top frame band is removed. */
+.demo-spread.ring-top {
+  position: relative;
+  padding-top: 42px;
+}
+
+/* Left binding for single-page mode: the comb runs down the
+   left edge, with the copier band outside it. */
+.demo-single-host.ring-left {
+  position: relative;
+  padding-top: 0;
+  padding-left: 42px;
+}
+
+.demo-single-host.ring-left .demo-ring-binder,
+.archive-scan-viewer[data-mode="single"].demo-ring-top .demo-ring-binder {
+  inset: 0 auto 0 0;
+  width: 46px;
+  height: auto;
+  background-image:
+    var(--binder-grain-image, none), linear-gradient(90deg, #1a1a1a, #1a1a1a),
+    linear-gradient(90deg, #3f4246, #26282b 45%, #141518);
+  background-size:
+    320px 320px,
+    20px 100%,
+    26px 100%;
+  background-position:
+    0 0,
+    0 0,
+    100% 0;
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-blend-mode: multiply, normal, normal;
+  border-top: none;
+  border-left: none;
+  border-right: 1px solid rgb(255 255 255 / 16%);
+  border-bottom: none;
+}
+
+.demo-single-host.ring-left .demo-ring-binder::before,
+.archive-scan-viewer[data-mode="single"].demo-ring-top
+  .demo-ring-binder::before {
+  inset: 55px auto 55px 56px;
+  width: 14px;
+  height: auto;
+  background-image: radial-gradient(
+    circle at 50% 50%,
+    #141518 6px,
+    rgb(0 0 0 / 70%) 7px,
+    rgb(255 255 255 / 16%) 8px,
+    transparent 9px
+  );
+  background-size: 14px 56px;
+  background-repeat: repeat-y;
+}
+
+.demo-single-host.ring-left .demo-ring-binder::after,
+.archive-scan-viewer[data-mode="single"].demo-ring-top
+  .demo-ring-binder::after {
+  inset: 55px auto 55px 32px;
+  width: 40px;
+  height: auto;
+  background-image:
+    radial-gradient(circle at 7px 28px, #313437 9.6px, transparent 10.2px),
+    radial-gradient(circle at 31px 28px, #26292c 9.6px, transparent 10.2px),
+    linear-gradient(
+      180deg,
+      transparent 0 18px,
+      #3a3d41 18px,
+      #26292c 21px,
+      #101214 28px,
+      #26292c 35px,
+      #3a3d41 38px,
+      transparent 38px 56px
+    );
+  background-size: 100% 56px;
+  background-repeat: repeat-y;
+}
+
+.archive-scan-viewer[data-mode="single"].demo-ring-top {
+  padding-top: 0;
+  padding-left: 46px;
+}
+
+/* In spread mode the viewer stretches both sheets to one
+   height; the sample pages fill their paper so the tone stays
+   continuous to the bottom edge. */
+#section-viewer .archive-scan-content > .viewer-page {
+  flex: 1 1 auto;
+}
+
+.viewer-page-cover h1 {
+  font-size: 2rem;
+}
+
+/* ==========================================================================
+   Viewer toolbar
+   ========================================================================== */
+
+.demo-panel-row {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0;
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.demo-panel-row button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #55524c;
+  border-radius: 4px;
+  background: #3a3833;
+  color: var(--demo-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.demo-panel-row button:hover {
+  background: #45423c;
+}
+
+#viewer-indicator {
+  min-width: 4rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.demo-inline-label {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--demo-muted);
+  font-size: 0.85rem;
+}
+
+.demo-inline-label select {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #55524c;
+  border-radius: 4px;
+  background: #232220;
+  color: var(--demo-ink);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.demo-reader {
+  border-radius: 8px;
+}
+
+/* The viewer preview spans the full viewport width. */
+#reader {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ==========================================================================
+   Playground layouts (single page / facing pages)
+   ========================================================================== */
+
+.demo-sheet-host {
+  min-width: 0;
+}
+
+.demo-single-host {
+  width: min(720px, 100%);
+}
+
+.demo-spread {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.demo-spread .demo-sheet-host {
+  display: flex;
+  flex: 1 1 0;
+}
+
+/* Stretch both sheets to one shared height, as an open book does:
+   the shorter page simply gains blank paper at the bottom. */
+.demo-spread .demo-sheet-host > .archive-scan-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+.demo-spread .archive-scan-stage,
+.demo-spread .archive-scan-content,
+.demo-spread .paper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+.demo-spread .paper {
+  max-width: none;
+}
+
+/* Page-block fore-edges: the stacked edges of the surrounding
+   pages, visible at the outer sides of an open book. Each sheet
+   edge is a thin vertical line; the block sits a touch shorter
+   than the open sheets and its inner side falls into shadow.
+
+   The strips anchor to the sheet edge — sliding under a copier
+   frame when one surrounds the sheet — so the block belongs to
+   the pages, not to the frame. */
+.demo-sheet-verso > .archive-scan-page::before,
+.demo-sheet-recto > .archive-scan-page::after {
+  content: "";
+  position: absolute;
+  width: 11px;
+  border-radius: 2px;
+  z-index: 1;
+  box-shadow: 0 2px 9px rgb(0 0 0 / 35%);
+}
+
+.demo-sheet-verso > .archive-scan-page::before {
+  top: var(--archive-frame-top, 0);
+  bottom: var(--archive-frame-bottom, 0);
+  right: calc(100% - var(--archive-frame-left, 0px) - 3px);
+  transform: skewY(1.5deg) rotate(var(--archive-rotation, 0deg));
+  background:
+    linear-gradient(
+      90deg,
+      rgb(255 255 255 / 14%),
+      rgb(0 0 0 / 0%) 45%,
+      rgb(0 0 0 / 26%)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      #f4f2ec 0 1.1px,
+      #d9d6ce 1.1px 1.9px,
+      #b8b4ab 1.9px 2.4px,
+      #f4f2ec 2.4px 3.3px
+    );
+}
+
+.demo-sheet-recto > .archive-scan-page::after {
+  top: var(--archive-frame-top, 0);
+  bottom: var(--archive-frame-bottom, 0);
+  left: calc(100% - var(--archive-frame-right, 0px) - 3px);
+  transform: skewY(-1.5deg) rotate(var(--archive-rotation, 0deg));
+  background:
+    linear-gradient(
+      270deg,
+      rgb(255 255 255 / 14%),
+      rgb(0 0 0 / 0%) 45%,
+      rgb(0 0 0 / 26%)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      #f4f2ec 0 1.1px,
+      #d9d6ce 1.1px 1.9px,
+      #b8b4ab 1.9px 2.4px,
+      #f4f2ec 2.4px 3.3px
+    );
+}
+
+/* Spine curl: each sheet renders its own half of the binding,
+   anchored to the paper's vertical extent. The curl therefore
+   stays contained to the book, terminates at the sheet's head
+   and tail, and covers the wedges that per-page rotation opens
+   at the seam. */
+.demo-spread .demo-sheet-verso > .archive-scan-page::after,
+.demo-spread .demo-sheet-recto > .archive-scan-page::before {
+  content: "";
+  position: absolute;
+  top: var(--archive-frame-top, 0);
+  bottom: var(--archive-frame-bottom, 0);
+  width: var(--demo-curl-half, 24px);
+  z-index: 5;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+.demo-spread .demo-sheet-verso > .archive-scan-page::after {
+  right: 0;
+  background:
+    linear-gradient(
+      to right,
+      rgb(244 242 236 / 0%) 0%,
+      rgb(244 242 236 / var(--demo-curl-light-1, 0.55)) 52%,
+      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 92%,
+      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 100%
+    ),
+    linear-gradient(
+      to right,
+      rgb(0 0 0 / 0%) 0%,
+      rgb(0 0 0 / var(--demo-curl-edge, 0.34)) 32%,
+      rgb(24 22 19 / var(--demo-curl-mid, 0.9)) 56%,
+      rgb(10 9 8 / var(--demo-curl-core, 0.96)) 100%
+    );
+}
+
+.demo-spread .demo-sheet-recto > .archive-scan-page::before {
+  left: 0;
+  background:
+    linear-gradient(
+      to left,
+      rgb(244 242 236 / 0%) 0%,
+      rgb(244 242 236 / var(--demo-curl-light-1, 0.55)) 52%,
+      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 92%,
+      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 100%
+    ),
+    linear-gradient(
+      to left,
+      rgb(0 0 0 / 0%) 0%,
+      rgb(0 0 0 / var(--demo-curl-edge, 0.34)) 32%,
+      rgb(24 22 19 / var(--demo-curl-mid, 0.9)) 56%,
+      rgb(10 9 8 / var(--demo-curl-core, 0.96)) 100%
+    );
+}
+
+/* ==========================================================================
+   Narrow screens
+   ========================================================================== */
+
+@media (width <= 900px) {
+  #section-playground {
+    flex-direction: column;
+  }
+
+  .demo-panel {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .paper {
+    padding: 2rem 1.5rem;
+  }
+}

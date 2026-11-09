@@ -1,0 +1,324 @@
+.archive-scan-page,
+.archive-scan-page *,
+.archive-scan-viewer,
+.archive-scan-viewer * {
+  box-sizing: border-box;
+}
+
+.archive-scan-page {
+  --archive-paper: rgb(247 247 247);
+  --archive-texture: 0;
+  --archive-grain: 0;
+  --archive-edge-noise: 0;
+  --archive-border-darkness: 0;
+  --archive-border-width: 0px;
+  --archive-unevenness: 0;
+  --archive-bleed: 0;
+
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  background: var(--archive-paper);
+  transform-origin: center center;
+}
+
+.archive-scan-stage {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--archive-paper);
+}
+
+.archive-scan-content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  background: var(--archive-paper);
+}
+
+.archive-scan-shinethru {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  opacity: var(--archive-shinethru, 0);
+  filter: blur(1.1px);
+  transform: scaleX(-1);
+  pointer-events: none;
+  user-select: none;
+}
+
+/*
+     * The enhancement filter covers the whole stage, so overlays,
+     * artifacts and the paper background pass through the same
+     * tone processing as the content. This is what makes strict
+     * bitonal output possible across all elements.
+     */
+.archive-scan-page[data-enhancement="css"] > .archive-scan-stage {
+  filter: grayscale(var(--archive-grayscale, 1))
+    brightness(var(--archive-brightness, 1))
+    contrast(var(--archive-contrast, 1)) blur(var(--archive-blur, 0));
+}
+
+.archive-scan-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.archive-scan-paper-texture {
+  opacity: var(--archive-texture);
+  mix-blend-mode: multiply;
+  background-image: var(--archive-texture-image, none);
+  background-size: 260px 260px;
+}
+
+.archive-scan-exposure {
+  opacity: var(--archive-unevenness);
+  mix-blend-mode: multiply;
+  background:
+    radial-gradient(ellipse at 44% 37%, rgb(255 255 255 / 8%), transparent 45%),
+    linear-gradient(
+      96deg,
+      rgb(0 0 0 / 20%),
+      transparent 12%,
+      transparent 81%,
+      rgb(0 0 0 / 13%)
+    ),
+    linear-gradient(
+      0deg,
+      rgb(0 0 0 / 10%),
+      transparent 17%,
+      transparent 86%,
+      rgb(255 255 255 / 8%)
+    );
+}
+
+.archive-scan-grain {
+  mix-blend-mode: multiply;
+  background-image: var(--archive-grain-image, none);
+  background-size: 320px 320px;
+}
+
+.archive-scan-bleed {
+  opacity: var(--archive-bleed);
+  mix-blend-mode: multiply;
+  background:
+    repeating-linear-gradient(
+      2deg,
+      transparent 0 12px,
+      rgb(0 0 0 / 7%) 13px,
+      transparent 14px 25px
+    ),
+    radial-gradient(ellipse at 63% 24%, rgb(0 0 0 / 8%), transparent 35%);
+  transform: scaleX(-1);
+}
+
+.archive-scan-edge {
+  box-shadow:
+    inset var(--archive-border-width) 0 calc(var(--archive-border-width) * 0.6)
+      rgb(0 0 0 / var(--archive-border-darkness)),
+    inset calc(var(--archive-border-width) * -1) 0
+      calc(var(--archive-border-width) * 0.6)
+      rgb(0 0 0 / var(--archive-border-darkness)),
+    inset 0 var(--archive-border-width) calc(var(--archive-border-width) * 0.4)
+      rgb(0 0 0 / var(--archive-border-darkness)),
+    inset 0 calc(var(--archive-border-width) * -1)
+      calc(var(--archive-border-width) * 0.4)
+      rgb(0 0 0 / var(--archive-border-darkness));
+  opacity: var(--archive-edge-noise);
+}
+
+.archive-scan-generated-artifacts {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.archive-scan-dust {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  left: var(--x);
+  top: var(--y);
+  border-radius: 50%;
+  opacity: var(--opacity);
+  background: #111;
+  filter: blur(var(--blur));
+}
+
+.archive-scan-scratch {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--width);
+  height: var(--height);
+  opacity: var(--opacity);
+  background: #111;
+  transform: rotate(var(--rotation));
+  transform-origin: top;
+}
+
+.archive-scan-streak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--x);
+  width: var(--width);
+  opacity: var(--opacity);
+  background: repeating-linear-gradient(
+    0deg,
+    #111 0 7px,
+    transparent 7px 10px,
+    #111 10px 19px
+  );
+}
+
+.archive-scan-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--y);
+  height: var(--height);
+  opacity: var(--opacity);
+  background: #111;
+}
+
+.archive-scan-svg {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.archive-scan-viewer {
+  --archive-gap: 0px;
+
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--archive-gap);
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.archive-scan-slot {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.archive-scan-viewer[data-mode="single"] .archive-scan-slot {
+  width: 100%;
+}
+
+.archive-scan-viewer[data-mode="spread"] .archive-scan-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: calc((100% - var(--archive-gap)) / 2);
+}
+
+/*
+     * In spread mode both slots share one height — the taller
+     * page defines it — and each page, stage and content
+     * wrapper stretches to fill its slot, so facing pages meet
+     * head and tail like a real open book.
+     */
+.archive-scan-viewer[data-mode="spread"] {
+  align-items: stretch;
+}
+
+.archive-scan-viewer[data-fit="width"] .archive-scan-page {
+  width: 100%;
+}
+
+.archive-scan-viewer[data-fit="contain"] .archive-scan-page {
+  width: auto;
+  max-width: 100%;
+}
+
+.archive-scan-viewer[data-fit="height"] .archive-scan-page {
+  width: auto;
+  max-height: 100%;
+}
+
+.archive-scan-viewer[data-mode="spread"]
+  .archive-scan-slot
+  > .archive-scan-page {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.archive-scan-viewer[data-mode="spread"]
+  .archive-scan-page
+  > .archive-scan-stage {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.archive-scan-viewer[data-mode="spread"]
+  .archive-scan-stage
+  > .archive-scan-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.archive-scan-gutter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  width: var(--gutter-width);
+  pointer-events: none;
+  filter: blur(var(--gutter-blur));
+}
+
+.archive-scan-gutter[data-edge="left"] {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / var(--gutter-darkness)),
+    rgb(0 0 0 / var(--gutter-middle)) var(--gutter-curve),
+    rgb(255 255 255 / var(--gutter-highlight)) 82%,
+    transparent
+  );
+}
+
+.archive-scan-gutter[data-edge="right"] {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    rgb(0 0 0 / var(--gutter-darkness)),
+    rgb(0 0 0 / var(--gutter-middle)) var(--gutter-curve),
+    rgb(255 255 255 / var(--gutter-highlight)) 82%,
+    transparent
+  );
+}
+
+.archive-scan-empty {
+  width: 100%;
+  aspect-ratio: 0.72;
+  visibility: hidden;
+}
+
+@media print {
+  .archive-scan-grain,
+  .archive-scan-generated-artifacts {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
