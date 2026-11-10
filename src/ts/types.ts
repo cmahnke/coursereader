@@ -420,6 +420,14 @@ export interface CourseReaderViewerOptions {
   enhancement?: "auto" | "svg" | "css";
 
   /**
+   * Number of sheets stacked per side of the spine. Scales the
+   * spine curl and the fore-edge page blocks the same way the
+   * playground desk does. Defaults to the original look
+   * (curl 24px, block depth 11px).
+   */
+  spinePages?: number;
+
+  /**
    * Ordered responsive layouts. The first matching query wins.
    */
   layouts: ResponsiveLayout[];

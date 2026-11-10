@@ -13,7 +13,7 @@ import type {
   GutterOptions,
   ResponsiveLayout,
 } from "./types.js";
-import { clamp, deepMerge, resolveElement } from "./utils.js";
+import { clamp, deepMerge, resolveElement, spineScaling } from "./utils.js";
 
 function resolveLayout(layouts: ResponsiveLayout[]): ResponsiveLayout {
   for (const layout of layouts) {
@@ -87,6 +87,24 @@ function createGutter(
   return gutter;
 }
 
+/*
+ * The spine chrome belongs to the sheet: a `data-spine-side`
+ * attribute drives the shared page-level rendering (curl half at
+ * the seam, fore-edge page blocks at the outer sides), so the
+ * viewer and the playground desk render through the same CSS and
+ * receive the same tone treatment from the page's stage filter.
+ */
+function setSpineSide(
+  page: CourseReaderPage,
+  side: "left" | "right" | null,
+): void {
+  if (side) {
+    page.element.dataset.spineSide = side;
+  } else {
+    delete page.element.dataset.spineSide;
+  }
+}
+
 function createSlot(
   page: CourseReaderPage | null,
   side: "single" | "left" | "right",
@@ -101,24 +119,18 @@ function createSlot(
   if (page) {
     slot.append(page.element);
 
-    /*
-     * The binding shadow belongs to the sheet, not to the slot:
-     * expose the page's copier frame insets so the gutter can
-     * stop at the sheet's head and tail instead of running on
-     * into the frame.
-     */
     if (gutter && side !== "single") {
-      for (const inset of ["top", "bottom"] as const) {
-        const value = page.element.style.getPropertyValue(
-          `--archive-frame-${inset}`,
-        );
+      /*
+       * The binding shadow belongs to the sheet: inside the
+       * content it stops at the sheet's head and tail, sits
+       * under the spine curl and passes through the same tone
+       * processing as the paper.
+       */
+      const sheet = page.element.querySelector<HTMLElement>(
+        ".archive-scan-content",
+      );
 
-        if (value) {
-          slot.style.setProperty(`--archive-frame-${inset}`, value);
-        }
-      }
-
-      slot.append(createGutter(side === "left" ? "right" : "left", gutter));
+      sheet?.append(createGutter(side === "left" ? "right" : "left", gutter));
     }
   } else {
     const empty = document.createElement("div");
@@ -195,6 +207,26 @@ export function createCourseReaderViewer(
   );
 
   let destroyed = false;
+
+  /*
+   * The spine pages scale the fold depth onto the curl and stack
+   * sheet edges at the fore-edges, matching the desk's fold
+   * scaling. Without the option the CSS defaults reproduce the
+   * original look.
+   */
+  if (options.spinePages !== undefined) {
+    const scaling = spineScaling(options.spinePages);
+
+    viewer.style.setProperty(
+      "--archive-curl-half",
+      `${scaling.curlHalf.toFixed(1)}px`,
+    );
+
+    viewer.style.setProperty(
+      "--archive-block-depth",
+      `${scaling.blockDepth}px`,
+    );
+  }
 
   const mediaQueries = options.layouts.map((layout) =>
     window.matchMedia(layout.query),
@@ -275,6 +307,10 @@ export function createCourseReaderViewer(
     if (layout.mode === "single") {
       applyFrameSides(false, null, null);
 
+      for (const page of renderedPages) {
+        setSpineSide(page, null);
+      }
+
       viewer.replaceChildren(
         createSlot(renderedPages[currentPage], "single", false),
       );
@@ -285,6 +321,13 @@ export function createCourseReaderViewer(
     const [leftIndex, rightIndex] = spreadIndices(layout);
 
     applyFrameSides(gutter !== false, leftIndex, rightIndex);
+
+    for (const [index, page] of renderedPages.entries()) {
+      setSpineSide(
+        page,
+        index === leftIndex ? "left" : index === rightIndex ? "right" : null,
+      );
+    }
 
     viewer.replaceChildren(
       createSlot(

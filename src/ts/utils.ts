@@ -48,6 +48,28 @@ export function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+/**
+ * Spine scaling shared by the playground desk and the viewer: the
+ * page count scales the fold depth onto the curl and stacks sheet
+ * edges at the fore-edges. The default of 8 reproduces the
+ * original look exactly.
+ */
+export function spineScaling(pageCount: number): {
+  curlFactor: number;
+  curlHalf: number;
+  blockDepth: number;
+} {
+  const curlFactor = 0.75 + pageCount / 32;
+
+  return {
+    curlFactor,
+
+    curlHalf: 24 * curlFactor,
+
+    blockDepth: Math.min(27, 3 + pageCount),
+  };
+}
+
 export function hashSeed(value: string | number): number {
   const text = String(value);
   let hash = 2166136261;

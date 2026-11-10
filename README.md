@@ -483,6 +483,44 @@ An inline gutter configuration is also supported:
 }
 ```
 
+### Spine rendering
+
+Spread layouts render the same spine as the playground desk — both use
+the same renderer. Each sheet shows a curl half at the seam and the
+stacked page-block edges at the outer fore-edges. The chrome is keyed
+on a `data-spine-side="left" | "right"` attribute the viewer places on
+every sheet seated in a spread, and it is anchored to the sheet's
+content, so it follows the sheet's rotation and passes through the
+page's own tone processing. The spine appears whenever a spread seats
+a page — including when `gutter` is disabled.
+
+Pass `spinePages` (sheets stacked per side, like the playground's
+"Pages per side" control) to scale the fold the same way the desk
+does; without it the CSS defaults reproduce the original look. The
+look can also be tuned per instance through custom properties:
+
+```ts
+const viewer = createCourseReaderViewer("#reader", {
+  pages: ["#page-1", "#page-2"],
+  layouts: [{ query: "all", mode: "spread" }],
+
+  spinePages: 8,
+});
+```
+
+```css
+.archive-scan-viewer {
+  --archive-curl-half: 24px; /* seam curl width */
+  --archive-block-depth: 11px; /* fore-edge stack depth */
+
+  --archive-curl-light-1: 0.55; /* curl highlight bands */
+  --archive-curl-light-2: 0.25;
+  --archive-curl-edge: 0.34; /* curl shadow stops */
+  --archive-curl-mid: 0.9;
+  --archive-curl-core: 0.96;
+}
+```
+
 ## Playground
 
 `createPlayground` renders the self-contained playground UI used by the

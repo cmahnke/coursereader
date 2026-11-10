@@ -27,7 +27,7 @@ import type {
   ScanSettings,
   ToneMode,
 } from "./types.js";
-import { clamp, resolveElement } from "./utils.js";
+import { clamp, resolveElement, spineScaling } from "./utils.js";
 import { createCourseReaderViewer } from "./viewer.js";
 
 /**
@@ -95,7 +95,12 @@ export interface PlaygroundHandle {
 
 const CUSTOM_PRESET = "library-copy";
 
-const CUSTOM_BINDING = "demo-binding";
+/*
+ * The viewer's spread binding: the playground configures ring-top
+ * mode through its captured configuration, everything else uses
+ * this built-in binding style.
+ */
+const VIEWER_BINDING = "deep-bound-volume";
 
 const VIEWER_PAGE_SELECTORS = [
   "#viewer-page-1",
@@ -113,13 +118,19 @@ interface ViewerConfig {
   seed: string | number;
   enhancement: CourseReaderPageOptions["enhancement"];
   overrides: DeepPartial<ScanSettings>;
+
+  /**
+   * Whether the playground's ring binder toggle was active when
+   * the configuration was captured; the viewer hangs its pages
+   * from the comb binding instead of a gutter.
+   */
+  ringTop: boolean;
 }
 
 interface PlaygroundShared {
   viewerConfig: ViewerConfig | null;
   pageCount: number;
   refreshViewer: (() => void) | null;
-  setViewerBinding: ((name: string) => void) | null;
   showViewerTab: (() => void) | null;
 }
 
@@ -1237,16 +1248,6 @@ const VIEWER_TOOLBAR_MARKUP = `
   <button id="viewer-previous" type="button">← Previous</button>
   <span id="viewer-indicator" aria-live="polite">1 / 4</span>
   <button id="viewer-next" type="button">Next →</button>
-  <label class="demo-inline-label">
-    Binding
-    <select id="viewer-gutter" aria-label="Binding style">
-      <option value="subtle">subtle</option>
-      <option value="bound-volume">bound-volume</option>
-      <option value="deep-bound-volume" selected>deep-bound-volume</option>
-      <option value="demo-binding">demo-binding</option>
-      <option value="ring-top">ring binder — top</option>
-    </select>
-  </label>
   <span class="demo-hint"
     >Arrow keys navigate · resize to switch single/spread</span
   >
@@ -1988,24 +1989,24 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   /*
    * The page count scales the fold depth onto the curl and stacks
-   * sheet edges at the fore-edges. The default of 8 reproduces
-   * the original look exactly.
+   * sheet edges at the fore-edges through the shared spine
+   * renderer. The default of 8 reproduces the original look.
    */
   function applyPageCount(): void {
     if (!bindingContainer) {
       return;
     }
 
-    const curlFactor = 0.75 + pageCount / 32;
+    const { curlHalf, blockDepth } = spineScaling(pageCount);
 
     bindingContainer.style.setProperty(
-      "--demo-curl-half",
-      `${(24 * curlFactor).toFixed(1)}px`,
+      "--archive-curl-half",
+      `${curlHalf.toFixed(1)}px`,
     );
 
     bindingContainer.style.setProperty(
-      "--demo-block-depth",
-      `${Math.min(27, 3 + pageCount)}px`,
+      "--archive-block-depth",
+      `${blockDepth}px`,
     );
   }
 
@@ -2098,6 +2099,15 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       }
 
       versoGhost?.replaceChildren(rectoMirror);
+
+      /*
+       * The shared spine renderer keys on the sheet's spread
+       * side: the verso sheet curls on its right edge, the
+       * recto sheet on its left edge.
+       */
+      pages[0].element.dataset.spineSide = "left";
+
+      pages[1].element.dataset.spineSide = "right";
     } else {
       arrangeSingle();
 
@@ -2121,6 +2131,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
           },
         }),
       ];
+
+      /* Single sheets carry no spine chrome; the sheet elements
+         are reused across layout changes. */
+      delete pages[0].element.dataset.spineSide;
     }
 
     applyBinding(ringTop);
@@ -2388,13 +2402,9 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
           sides: { top: true, right: true, bottom: true, left: true },
         },
       },
+
+      ringTop: ringBinderToggle.checked,
     };
-
-    const ring = ringBinderToggle.checked;
-
-    if (ring) {
-      shared.setViewerBinding?.("ring-top");
-    }
 
     shared.refreshViewer?.();
     shared.showViewerTab?.();
@@ -2474,17 +2484,16 @@ function initViewerControls(shared: PlaygroundShared): () => void {
 
   const indicator = document.querySelector<HTMLElement>("#viewer-indicator")!;
 
-  const gutterSelect =
-    document.querySelector<HTMLSelectElement>("#viewer-gutter")!;
-
   let viewer: CourseReaderViewer | null = null;
 
-  function buildLayouts(gutter: string | false): ResponsiveLayout[] {
+  function buildLayouts(ringTop: boolean): ResponsiveLayout[] {
     /*
      * The page count scales the gutter depth onto the viewer's
-     * spine, matching the desk's fold scaling.
+     * spine, matching the desk's fold scaling. The binding comes
+     * from the playground's configuration: ring-top mode replaces
+     * the gutter with the comb binder.
      */
-    const curlFactor = 0.75 + shared.pageCount / 32;
+    const { curlFactor } = spineScaling(shared.pageCount);
 
     return [
       {
@@ -2500,13 +2509,16 @@ function initViewerControls(shared: PlaygroundShared): () => void {
         mode: "spread",
         pageFit: "contain",
         gap: 0,
-        gutter: gutter
-          ? {
-              ...bindings.get(gutter),
+        gutter: ringTop
+          ? false
+          : {
+              ...bindings.get(VIEWER_BINDING),
 
-              width: Math.max(8, bindings.get(gutter).width * curlFactor),
-            }
-          : false,
+              width: Math.max(
+                8,
+                bindings.get(VIEWER_BINDING).width * curlFactor,
+              ),
+            },
         background: "#222",
 
         spread: {
@@ -2570,7 +2582,7 @@ function initViewerControls(shared: PlaygroundShared): () => void {
     viewer?.destroy();
     viewer = null;
 
-    const ringTop = gutterSelect.value === "ring-top";
+    const ringTop = shared.viewerConfig?.ringTop ?? false;
 
     const config = shared.viewerConfig;
 
@@ -2597,9 +2609,13 @@ function initViewerControls(shared: PlaygroundShared): () => void {
 
       enhancement: config?.enhancement,
 
-      layouts: buildLayouts(ringTop ? false : gutterSelect.value),
+      layouts: buildLayouts(ringTop),
 
       overrides,
+
+      /* The spine scales with the same pages-per-side control
+         that drives the desk's fold. */
+      spinePages: shared.pageCount,
     });
 
     viewer.element.classList.toggle("demo-ring-top", ringTop);
@@ -2641,10 +2657,6 @@ function initViewerControls(shared: PlaygroundShared): () => void {
 
   shared.refreshViewer = createViewer;
 
-  shared.setViewerBinding = (name: string) => {
-    gutterSelect.value = name;
-  };
-
   previousButton.addEventListener("click", () => {
     void viewer?.previous().then(() => {
       updateIndicator();
@@ -2658,8 +2670,6 @@ function initViewerControls(shared: PlaygroundShared): () => void {
       syncBindingWidth();
     });
   });
-
-  gutterSelect.addEventListener("change", () => createViewer());
 
   document.addEventListener(
     "keydown",
@@ -2774,16 +2784,6 @@ export function createPlayground(
     });
   }
 
-  if (!bindings.has(CUSTOM_BINDING)) {
-    bindings.define(CUSTOM_BINDING, {
-      width: 40,
-      darkness: 0.72,
-      blur: 14,
-      curvature: 0.6,
-      highlight: 0.12,
-    });
-  }
-
   const host = resolveElement(target);
 
   const shell = document.createElement("div");
@@ -2825,7 +2825,6 @@ export function createPlayground(
     viewerConfig: null,
     pageCount: 8,
     refreshViewer: null,
-    setViewerBinding: null,
     showViewerTab: null,
   };
 

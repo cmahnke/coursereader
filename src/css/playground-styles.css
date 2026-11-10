@@ -105,10 +105,14 @@ input:focus-visible {
   padding: 1rem;
 }
 
+/*
+ * The viewer section spans the full window width; width
+ * constraints live on the toolbar row so the preview can fill
+ * the window without overflowing it.
+ */
 #section-viewer {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1rem;
+  margin: 0;
+  padding: 0;
 }
 
 /* ==========================================================================
@@ -714,8 +718,9 @@ input:focus-visible {
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
-  margin-bottom: 1rem;
-  padding: 0;
+  max-width: 1400px;
+  margin: 0 auto 1rem;
+  padding: 1rem 1rem 0;
 }
 
 /* stylelint-disable-next-line no-descending-specificity */
@@ -740,34 +745,20 @@ input:focus-visible {
   text-align: center;
 }
 
-.demo-inline-label {
-  display: inline-flex;
-  gap: 0.5rem;
-  align-items: center;
-  color: var(--demo-muted);
-  font-size: 0.85rem;
-}
-
-.demo-inline-label select {
-  padding: 0.3rem 0.45rem;
-  border: 1px solid #55524c;
-  border-radius: 4px;
-  background: #232220;
-  color: var(--demo-ink);
-  font: inherit;
-  font-size: 0.85rem;
-}
-
 .demo-reader {
   border-radius: 8px;
 }
 
-/* The viewer preview spans the full viewport width. */
+/*
+ * The viewer preview spans the full window width. A plain 100%
+ * resolves to the window width minus the vertical scrollbar, so
+ * the page never overflows horizontally. The element stays a
+ * positioning context: the demo's ring binder is absolutely
+ * positioned against it.
+ */
 #reader {
-  width: 100vw;
   position: relative;
-  left: 50%;
-  transform: translateX(-50%);
+  width: 100%;
 }
 
 /* ==========================================================================
@@ -812,119 +803,6 @@ input:focus-visible {
 
 .demo-spread .paper {
   max-width: none;
-}
-
-/* Page-block fore-edges: the stacked edges of the surrounding
-   pages, visible at the outer sides of an open book. Each sheet
-   edge is a thin vertical line; the block sits a touch shorter
-   than the open sheets and its inner side falls into shadow.
-
-   The strips anchor to the sheet edge — sliding under a copier
-   frame when one surrounds the sheet — so the block belongs to
-   the pages, not to the frame. */
-.demo-sheet-verso .archive-scan-content::before,
-.demo-sheet-recto .archive-scan-content::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: var(--demo-block-depth, 11px);
-  border-radius: 2px;
-  z-index: 1;
-  box-shadow: 0 2px 9px rgb(0 0 0 / 35%);
-}
-
-.demo-sheet-verso .archive-scan-content::before {
-  left: calc(3px - var(--demo-block-depth, 11px));
-  transform: skewY(1.5deg);
-  background:
-    linear-gradient(
-      90deg,
-      rgb(255 255 255 / 14%),
-      rgb(0 0 0 / 0%) 45%,
-      rgb(0 0 0 / 26%)
-    ),
-    repeating-linear-gradient(
-      90deg,
-      #f4f2ec 0 1.1px,
-      #d9d6ce 1.1px 1.9px,
-      #b8b4ab 1.9px 2.4px,
-      #f4f2ec 2.4px 3.3px
-    );
-}
-
-.demo-sheet-recto .archive-scan-content::after {
-  right: calc(3px - var(--demo-block-depth, 11px));
-  transform: skewY(-1.5deg);
-  background:
-    linear-gradient(
-      270deg,
-      rgb(255 255 255 / 14%),
-      rgb(0 0 0 / 0%) 45%,
-      rgb(0 0 0 / 26%)
-    ),
-    repeating-linear-gradient(
-      90deg,
-      #f4f2ec 0 1.1px,
-      #d9d6ce 1.1px 1.9px,
-      #b8b4ab 1.9px 2.4px,
-      #f4f2ec 2.4px 3.3px
-    );
-}
-
-/* Spine curl: each sheet renders its own half of the binding,
-   anchored to the paper's vertical extent. The curl therefore
-   stays contained to the book, terminates at the sheet's head
-   and tail, and covers the wedges that per-page rotation opens
-   at the seam. */
-.demo-spread .demo-sheet-verso .archive-scan-content::after,
-.demo-spread .demo-sheet-recto .archive-scan-content::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: var(--demo-curl-half, 24px);
-  z-index: 5;
-  pointer-events: none;
-  filter: blur(2px);
-}
-
-.demo-spread .demo-sheet-verso .archive-scan-content::after {
-  right: 0;
-  background:
-    linear-gradient(
-      to right,
-      rgb(244 242 236 / 0%) 0%,
-      rgb(244 242 236 / var(--demo-curl-light-1, 0.55)) 52%,
-      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 92%,
-      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 100%
-    ),
-    linear-gradient(
-      to right,
-      rgb(0 0 0 / 0%) 0%,
-      rgb(0 0 0 / var(--demo-curl-edge, 0.34)) 32%,
-      rgb(24 22 19 / var(--demo-curl-mid, 0.9)) 56%,
-      rgb(10 9 8 / var(--demo-curl-core, 0.96)) 100%
-    );
-}
-
-.demo-spread .demo-sheet-recto .archive-scan-content::before {
-  left: 0;
-  background:
-    linear-gradient(
-      to left,
-      rgb(244 242 236 / 0%) 0%,
-      rgb(244 242 236 / var(--demo-curl-light-1, 0.55)) 52%,
-      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 92%,
-      rgb(244 242 236 / var(--demo-curl-light-2, 0.25)) 100%
-    ),
-    linear-gradient(
-      to left,
-      rgb(0 0 0 / 0%) 0%,
-      rgb(0 0 0 / var(--demo-curl-edge, 0.34)) 32%,
-      rgb(24 22 19 / var(--demo-curl-mid, 0.9)) 56%,
-      rgb(10 9 8 / var(--demo-curl-core, 0.96)) 100%
-    );
 }
 
 /* ==========================================================================

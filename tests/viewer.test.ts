@@ -243,6 +243,100 @@ describe("createCourseReaderViewer", () => {
     viewer.destroy();
   });
 
+  it("marks the spread sides for the shared spine renderer", async () => {
+    const viewer = createSpreadViewer({ gutter: "subtle" });
+
+    await viewer.goTo(1);
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(2);
+
+    /* The left sheet curls on its right edge at the spine. */
+    expect(pages[0]!.dataset.spineSide).toBe("left");
+
+    /* The right sheet curls on its left edge at the spine. */
+    expect(pages[1]!.dataset.spineSide).toBe("right");
+
+    viewer.destroy();
+  });
+
+  it("keeps the spine markers when the gutter is disabled", async () => {
+    const viewer = createSpreadViewer({ gutter: false });
+
+    await viewer.goTo(1);
+
+    const pages = slotPages(viewer);
+
+    expect(pages[0]!.dataset.spineSide).toBe("left");
+
+    expect(pages[1]!.dataset.spineSide).toBe("right");
+
+    viewer.destroy();
+  });
+
+  it("omits the spine markers in single mode and keeps them for lone spreads", async () => {
+    const viewer = createSingleViewer();
+
+    await viewer.refresh();
+
+    expect(viewer.element.querySelectorAll("[data-spine-side]")).toHaveLength(
+      0,
+    );
+
+    const spread = createSpreadViewer({ gutter: "subtle" });
+
+    /* The opening spread seats page one alone on the right. */
+    await spread.goTo(0);
+
+    const pages = slotPages(spread);
+
+    expect(pages).toHaveLength(1);
+
+    expect(pages[0]!.dataset.spineSide).toBe("right");
+
+    /* Returning to a full spread re-marks both sheets. */
+    await spread.goTo(1);
+
+    expect(slotPages(spread)[0]!.dataset.spineSide).toBe("left");
+
+    viewer.destroy();
+    spread.destroy();
+  });
+
+  it("scales the spine through the spinePages option", () => {
+    const host = spawnHost("viewer-host-spawned");
+
+    const viewer = createCourseReaderViewer(host, {
+      pages: FOUR_PAGES,
+      registry: freshPresetRegistry(),
+      spinePages: 8,
+      layouts: [{ query: "all", mode: "spread", gap: 0 }],
+    });
+
+    /* Eight pages per side: curl half 24 * (0.75 + 8 / 32),
+       block depth 3 + 8. */
+    expect(customProperty(viewer.element, "--archive-curl-half")).toBe(
+      "24.0px",
+    );
+
+    expect(customProperty(viewer.element, "--archive-block-depth")).toBe(
+      "11px",
+    );
+
+    viewer.destroy();
+  });
+
+  it("leaves the spine scaling to the CSS defaults without spinePages", () => {
+    const viewer = createSpreadViewer();
+
+    expect(customProperty(viewer.element, "--archive-curl-half")).toBe("");
+
+    expect(customProperty(viewer.element, "--archive-block-depth")).toBe("");
+
+    viewer.destroy();
+  });
+
   it("follows media query changes", async () => {
     const layouts: ResponsiveLayout[] = [
       { query: "(min-width: 900px)", mode: "spread", gap: 0 },

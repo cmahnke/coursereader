@@ -11,6 +11,7 @@ import {
   mergeInto,
   resolveElement,
   setAttributes,
+  spineScaling,
   supportsSvgFilters,
 } from "../src/ts/utils.js";
 
@@ -203,6 +204,34 @@ describe("resolveElement", () => {
 describe("supportsSvgFilters", () => {
   it("returns a boolean without throwing", () => {
     expect(typeof supportsSvgFilters()).toBe("boolean");
+  });
+});
+
+describe("spineScaling", () => {
+  it("reproduces the original look at eight pages", () => {
+    expect(spineScaling(8)).toEqual({
+      curlFactor: 1,
+      curlHalf: 24,
+      blockDepth: 11,
+    });
+  });
+
+  it("scales the curl and stacks the fore-edges with the page count", () => {
+    expect(spineScaling(1)).toEqual({
+      curlFactor: 0.78125,
+      curlHalf: 18.75,
+      blockDepth: 4,
+    });
+
+    expect(spineScaling(16)).toEqual({
+      curlFactor: 1.25,
+      curlHalf: 30,
+      blockDepth: 19,
+    });
+  });
+
+  it("clamps the block depth for thick books", () => {
+    expect(spineScaling(40).blockDepth).toBe(27);
   });
 });
 
