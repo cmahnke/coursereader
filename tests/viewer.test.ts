@@ -712,7 +712,7 @@ describe("createCourseReaderViewer", () => {
     }
   });
 
-  it("applies range overrides deterministically to every page", () => {
+  it("resolves range overrides once for every page", () => {
     spawnHost("viewer-host-ranges");
 
     const viewer = createCourseReaderViewer("#viewer-host-ranges", {
@@ -732,15 +732,22 @@ describe("createCourseReaderViewer", () => {
 
     expect(pages).toHaveLength(4);
 
-    for (const page of pages) {
-      const brightness = Number.parseFloat(
-        customProperty(page, "--archive-brightness"),
-      );
+    /*
+     * One copy run picks one value: every page of the viewer
+     * carries the same resolved brightness, while their artifact
+     * randomness still comes from the per-page seeds.
+     */
+    const brightnessValues = pages.map((page) =>
+      Number.parseFloat(customProperty(page, "--archive-brightness")),
+    );
 
+    for (const brightness of brightnessValues) {
       expect(brightness).toBeGreaterThanOrEqual(1.1);
 
       expect(brightness).toBeLessThanOrEqual(1.5);
     }
+
+    expect(new Set(brightnessValues).size).toBe(1);
 
     viewer.destroy();
   });

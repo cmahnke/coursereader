@@ -1017,10 +1017,11 @@ function panelAdvancedMarkup(): string {
       </span>
       <input id="control-ranges" type="checkbox" />
       <span class="demo-popover" role="tooltip"
-        >Turns every numeric slider into a two-handle range. Moving a
-        page between random copies of the setting instead of fixing
-        one value: the renderer picks a fresh value between the
-        handles for every page, derived from the seed.</span
+        >Turns every numeric slider into a two-handle range. Instead
+        of fixing one value, the renderer picks one value between
+        the handles — derived from the seed and shared by every
+        sheet of the copy run — while grain and artifacts still
+        differ per sheet.</span
       >
     </label>`;
 
@@ -1741,9 +1742,17 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     const overrides = control.applyRange(min, max);
 
+    /*
+     * The authored array is kept for the preset download and the
+     * viewer capture; the pages receive the value picked for the
+     * run's seed, so every sheet shares it.
+     */
     authoredRanges = deepMerge(authoredRanges, overrides);
 
-    applyControlChanges(control, overrides);
+    applyControlChanges(
+      control,
+      resolveNumericRanges(deepMerge({}, overrides), deskSeed()),
+    );
   }
 
   function writeOutput(runtime: ControlRuntime): void {
@@ -2332,7 +2341,12 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
           seed: `${seed}:verso`,
           enhancement,
 
-          overrides: {
+          /*
+           * The preset resolves once per rebuild with the desk
+           * seed, so both facing sheets share the picked values;
+           * the per-sheet overrides win over them.
+           */
+          overrides: deepMerge(resolved, {
             capture: ringTop
               ? { rotation: 0, rotationJitter: 0, perspective: 0 }
               : { rotation: pageRotation.left, rotationJitter: 0 },
@@ -2350,7 +2364,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
                 top: true,
               },
             },
-          },
+          }),
         }),
 
         courseReader(secondSheet, {
@@ -2358,7 +2372,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
           seed: `${seed}:recto`,
           enhancement,
 
-          overrides: {
+          overrides: deepMerge(resolved, {
             capture: ringTop
               ? { rotation: 0, rotationJitter: 0, perspective: 0 }
               : { rotation: pageRotation.right, rotationJitter: 0 },
@@ -2376,7 +2390,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
                 top: true,
               },
             },
-          },
+          }),
         }),
       ];
 
@@ -2414,7 +2428,12 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
           seed,
           enhancement,
 
-          overrides: {
+          /*
+           * The preset resolves once per rebuild with the desk
+           * seed, so a single sheet carries the run's picked
+           * values; the per-sheet overrides win over them.
+           */
+          overrides: deepMerge(resolved, {
             capture: ringTop
               ? { rotation: 0, rotationJitter: 0, perspective: 0 }
               : { rotation: pageRotation.left, rotationJitter: 0 },
@@ -2425,7 +2444,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
                 left: !ringTop,
               },
             },
-          },
+          }),
         }),
       ];
 

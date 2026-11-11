@@ -128,15 +128,18 @@ picks a random value between the bounds, both included:
 ```
 
 The pick is deterministic: every range draws from its own seeded
-random derived from the page seed and the setting's path, so the
-same seed resolves the same values — pages rendered with equal
-seeds are still identical copies, and updating an unrelated setting
-never reshuffles the picked ones. Ranges are accepted in preset
-definitions and in the `overrides` option and `update()` calls
-alike; any array inside the settings that is not a valid
-`[min, max]` pair throws a descriptive error. Prefer single values
-for integer-valued fields such as `tone.levels`, which receive the
-interpolated number as-is.
+random derived from the seed and the setting's path, so the same
+seed resolves the same values, and updating an unrelated setting
+never reshuffles the picked ones. In a viewer the settings resolve
+once per copy run — every page shares the picked values, the way
+one photocopy run carries one machine state — while the per-page
+artifact randomness (grain pattern, jitter) still differs from
+sheet to sheet. Standalone pages resolve with their own seed.
+Ranges are accepted in preset definitions and in the `overrides`
+option and `update()` calls alike; any array inside the settings
+that is not a valid `[min, max]` pair throws a descriptive error.
+Prefer single values for integer-valued fields such as
+`tone.levels`, which receive the interpolated number as-is.
 
 A single JSON document can also hold a map of presets:
 
@@ -735,13 +738,14 @@ copier frame's darkness, thickness, roughness and sides.
 
 The advanced settings also carry the expert "Ranges" toggle. When
 it is active, every numeric slider grows a second handle and
-authors a `[min, max]` range instead of a single value: the pages
-pick a fresh value between the handles, deterministically from the
-seed, so each rendered sheet is a different copy of the same
-setting. Authored ranges round-trip — the preset download emits
-them as arrays and "Show in viewer" passes them through to the
-viewer's pages — and leaving the toggle or switching the preset
-collapses the sliders back to single values.
+authors a `[min, max]` range instead of a single value: the
+renderer picks one value between the handles, deterministically
+from the seed, and the whole copy run — every sheet of the desk
+spread and of the viewer — shares it, while the per-sheet
+artifacts still differ. Authored ranges round-trip — the preset
+download emits them as arrays and "Show in viewer" passes them
+through to the viewer's pages — and leaving the toggle or
+switching the preset collapses the sliders back to single values.
 
 ## API overview
 

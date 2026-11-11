@@ -298,6 +298,41 @@ describe("Playground expert range mode", () => {
     );
   }
 
+  it("applies a ranged ink spread as one shared concrete value", () => {
+    startPlayground();
+
+    const toggle = document.querySelector<HTMLInputElement>("#control-ranges")!;
+
+    toggle.checked = true;
+
+    toggle.dispatchEvent(new Event("change"));
+
+    const max = document.querySelector<HTMLInputElement>(
+      "#control-ink-spread-range-max",
+    )!;
+
+    const min = document.querySelector<HTMLInputElement>(
+      "#control-ink-spread-range-min",
+    )!;
+
+    /* The collapsed range starts at the preset value. */
+    max.value = "0.6";
+
+    max.dispatchEvent(new Event("input"));
+
+    min.value = "0.2";
+
+    min.dispatchEvent(new Event("input"));
+
+    const settings = readout() as { ink: { spread: number } };
+
+    expect(typeof settings.ink.spread).toBe("number");
+
+    expect(settings.ink.spread).toBeGreaterThanOrEqual(0.2);
+
+    expect(settings.ink.spread).toBeLessThanOrEqual(0.6);
+  });
+
   it("keeps single sliders by default", () => {
     startPlayground();
 

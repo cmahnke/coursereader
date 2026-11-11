@@ -15,7 +15,13 @@ import type {
   ResponsiveLayout,
   SplitBookHandle,
 } from "./types.js";
-import { clamp, deepMerge, resolveElement, spineScaling } from "./utils.js";
+import {
+  clamp,
+  deepMerge,
+  resolveElement,
+  resolveNumericRanges,
+  spineScaling,
+} from "./utils.js";
 
 function resolveLayout(layouts: ResponsiveLayout[]): ResponsiveLayout {
   for (const layout of layouts) {
@@ -226,6 +232,20 @@ export function createCourseReaderViewer(
 
   const bindingRegistry = options.bindingRegistry ?? bindings;
 
+  /*
+   * Ranges resolve once per copy run: the full settings are
+   * resolved against the viewer's base seed and handed to every
+   * page as concrete values, so all sheets of the run share the
+   * picked setting. The per-page seeds still drive the artifacts.
+   */
+  const resolvedSettings = resolveNumericRanges(
+    deepMerge(
+      registry.resolve(options.preset ?? "clean"),
+      options.overrides ?? {},
+    ),
+    options.seed ?? options.preset ?? "page",
+  );
+
   const viewer = document.createElement("div");
 
   viewer.className = "archive-scan-viewer";
@@ -235,7 +255,7 @@ export function createCourseReaderViewer(
   const renderedPages = sourcePages.map((source, index) =>
     createCourseReaderPage(source, {
       preset: options.preset,
-      overrides: options.overrides,
+      overrides: resolvedSettings,
       seed: `${options.seed ?? options.preset ?? "page"}:${index}`,
       registry,
       enhancement: options.enhancement,
