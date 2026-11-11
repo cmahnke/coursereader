@@ -48,6 +48,75 @@ export function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+/*
+ * Ranges resolve per setting path: every range draws from its own
+ * seeded random, so a resolved value depends only on the page seed
+ * and its setting path — an update that adds or removes unrelated
+ * fields never reshuffles the values already picked.
+ */
+function resolveRangeValue(
+  value: unknown,
+  path: string,
+  seed: string | number,
+): unknown {
+  if (Array.isArray(value)) {
+    const valid =
+      value.length === 2 &&
+      typeof value[0] === "number" &&
+      typeof value[1] === "number" &&
+      Number.isFinite(value[0]) &&
+      Number.isFinite(value[1]);
+
+    if (!valid) {
+      throw new Error(
+        `Invalid numeric range at "${path}": expected [min, max] with numeric bounds.`,
+      );
+    }
+
+    if (value[0] > value[1]) {
+      throw new Error(
+        `Invalid numeric range at "${path}": minimum ${value[0]} exceeds maximum ${value[1]}.`,
+      );
+    }
+
+    const random = createRandom(`${seed}:${path}`);
+
+    return value[0] + random() * (value[1] - value[0]);
+  }
+
+  if (isRecord(value)) {
+    const result: UnknownRecord = {};
+
+    for (const [key, entry] of Object.entries(value)) {
+      result[key] = resolveRangeValue(
+        entry,
+        path ? `${path}.${key}` : key,
+        seed,
+      );
+    }
+
+    return result;
+  }
+
+  return value;
+}
+
+/**
+ * Replaces every numeric range in a settings tree with the value
+ * picked for it between the bounds, both included. The pick is
+ * deterministic from the seed and the setting's path, so the same
+ * seed resolves the same ranges on every call.
+ *
+ * @param value - Settings or settings overrides with ranges.
+ * @param seed - Seed the picks are derived from.
+ * @returns A copy of the value with every range resolved.
+ * @throws {Error} When an array inside the value is not a valid
+ * `[min, max]` range.
+ */
+export function resolveNumericRanges<T>(value: T, seed: string | number): T {
+  return resolveRangeValue(value, "", seed) as T;
+}
+
 /**
  * Spine scaling shared by the playground desk and the viewer: the
  * page count scales the fold depth onto the curl and stacks sheet

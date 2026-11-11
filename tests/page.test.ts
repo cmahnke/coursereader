@@ -348,3 +348,92 @@ describe("createCourseReaderPage", () => {
     page.destroy();
   });
 });
+
+describe("numeric range settings", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("resolves range overrides into concrete values", () => {
+    const source = sampleDocument("range-doc");
+
+    const page = createPage(source, {
+      seed: "range-seed",
+
+      overrides: {
+        paper: { tone: [0.2, 0.4], texture: [0.1, 0.3] },
+      },
+    });
+
+    const { tone, texture } = page.settings.paper;
+
+    expect(tone).toBeGreaterThanOrEqual(0.2);
+
+    expect(tone).toBeLessThanOrEqual(0.4);
+
+    expect(texture).toBeGreaterThanOrEqual(0.1);
+
+    expect(texture).toBeLessThanOrEqual(0.3);
+  });
+
+  it("resolves the same seed to the same values", () => {
+    const first = createPage(sampleDocument("range-same-a"), {
+      seed: "range-same-seed",
+
+      overrides: {
+        artifacts: { grain: [0, 1], dust: [0, 1], scratches: [0, 1] },
+      },
+    });
+
+    const second = createPage(sampleDocument("range-same-b"), {
+      seed: "range-same-seed",
+
+      overrides: {
+        artifacts: { grain: [0, 1], dust: [0, 1], scratches: [0, 1] },
+      },
+    });
+
+    expect(second.settings).toEqual(first.settings);
+  });
+
+  it("keeps resolved ranges stable across unrelated updates", () => {
+    const source = sampleDocument("range-update");
+
+    const page = createPage(source, {
+      seed: "range-update-seed",
+
+      overrides: { artifacts: { grain: [0.1, 0.9] } },
+    });
+
+    const grain = page.settings.artifacts.grain;
+
+    page.update({ paper: { tone: 0.5 } });
+
+    expect(page.settings.artifacts.grain).toBe(grain);
+  });
+
+  it("rejects malformed ranges with the setting path", () => {
+    const source = sampleDocument("range-invalid");
+
+    const nonNumeric = () =>
+      createPage(source, {
+        overrides: { artifacts: { grain: ["a", "b"] as unknown as number } },
+      });
+
+    expect(nonNumeric).toThrow(/"artifacts\.grain".*numeric bounds/);
+
+    const single = () =>
+      createPage(source, {
+        overrides: { artifacts: { grain: [1] as unknown as number } },
+      });
+
+    expect(single).toThrow(/"artifacts\.grain"/);
+
+    const reversed = () =>
+      createPage(source, {
+        overrides: { artifacts: { grain: [0.6, 0.2] as unknown as number } },
+      });
+
+    expect(reversed).toThrow(/"artifacts\.grain".*exceeds maximum/);
+  });
+});

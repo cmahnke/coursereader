@@ -113,6 +113,31 @@ app:
 }
 ```
 
+Every numeric value may also be authored as a range — an array of
+two numbers, `[min, max]`. When the renderer encounters a range it
+picks a random value between the bounds, both included:
+
+```json
+{
+  "extends": "microfilm-journal",
+  "artifacts": {
+    "grain": [0.4, 0.8],
+    "dust": [0.1, 0.3]
+  }
+}
+```
+
+The pick is deterministic: every range draws from its own seeded
+random derived from the page seed and the setting's path, so the
+same seed resolves the same values — pages rendered with equal
+seeds are still identical copies, and updating an unrelated setting
+never reshuffles the picked ones. Ranges are accepted in preset
+definitions and in the `overrides` option and `update()` calls
+alike; any array inside the settings that is not a valid
+`[min, max]` pair throws a descriptive error. Prefer single values
+for integer-valued fields such as `tone.levels`, which receive the
+interpolated number as-is.
+
 A single JSON document can also hold a map of presets:
 
 ```json

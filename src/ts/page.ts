@@ -23,6 +23,7 @@ import {
   deepMerge,
   hashSeed,
   resolveElement,
+  resolveNumericRanges,
   supportsSvgFilters,
 } from "./utils.js";
 
@@ -233,12 +234,16 @@ export function createCourseReaderPage(
 
   const presetName = options.preset ?? "clean";
 
-  let settings = deepMerge(
-    registry.resolve(presetName),
-    options.overrides ?? {},
-  );
-
   const seed = options.seed ?? `${presetName}:${instanceCounter}`;
+
+  /*
+   * Authored ranges in the preset and the overrides resolve here,
+   * so the renderer always works with concrete numbers.
+   */
+  let settings = resolveNumericRanges(
+    deepMerge(registry.resolve(presetName), options.overrides ?? {}),
+    seed,
+  );
 
   const random = createRandom(seed);
 
@@ -627,7 +632,7 @@ export function createCourseReaderPage(
         return;
       }
 
-      settings = deepMerge(settings, overrides);
+      settings = resolveNumericRanges(deepMerge(settings, overrides), seed);
 
       render();
     },

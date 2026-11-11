@@ -13,6 +13,29 @@ export type DeepPartial<T> = {
 };
 
 /**
+ * A numeric setting authored as an interval. When the renderer
+ * encounters a range it picks a random value between `min` and
+ * `max`, both included, deterministically from the page seed.
+ */
+export type NumericRange = [min: number, max: number];
+
+/**
+ * Recursively allows every numeric property of `T` to be authored
+ * as a single value or as a {@link NumericRange}.
+ */
+export type Rangeable<T> = T extends number
+  ? number | NumericRange
+  : T extends object
+    ? { [K in keyof T]: Rangeable<T[K]> }
+    : T;
+
+/**
+ * Scan settings as they may be authored in presets and overrides:
+ * every numeric value is either a number or a {@link NumericRange}.
+ */
+export type ScanSettingsWithRanges = Rangeable<ScanSettings>;
+
+/**
  * Tone reduction applied to the finished scan.
  *
  * - `"continuous"` keeps the full grayscale range.
@@ -235,8 +258,9 @@ export interface ScanSettings {
  * Partial settings stored in a named preset.
  *
  * A preset may inherit from another preset through `extends`.
+ * Numeric values may be authored as {@link NumericRange}s.
  */
-export type PresetDefinition = DeepPartial<ScanSettings> & {
+export type PresetDefinition = DeepPartial<ScanSettingsWithRanges> & {
   extends?: string;
 };
 
@@ -255,9 +279,10 @@ export interface CourseReaderPageOptions {
   preset?: string;
 
   /**
-   * Settings merged over the resolved preset.
+   * Settings merged over the resolved preset. Numeric values may
+   * be authored as {@link NumericRange}s.
    */
-  overrides?: DeepPartial<ScanSettings>;
+  overrides?: DeepPartial<ScanSettingsWithRanges>;
 
   /**
    * Seed for deterministic noise, artifacts, jitter and the
@@ -300,8 +325,9 @@ export interface CourseReaderPage {
 
   /**
    * Merges overrides into the current settings and re-renders.
+   * Numeric values may be authored as {@link NumericRange}s.
    */
-  update(overrides: DeepPartial<ScanSettings>): void;
+  update(overrides: DeepPartial<ScanSettingsWithRanges>): void;
 
   /**
    * Removes the wrapper and restores the original element.
@@ -444,9 +470,10 @@ export interface CourseReaderViewerOptions {
   preset?: string;
 
   /**
-   * Settings overrides applied to every page.
+   * Settings overrides applied to every page. Numeric values may
+   * be authored as {@link NumericRange}s.
    */
-  overrides?: DeepPartial<ScanSettings>;
+  overrides?: DeepPartial<ScanSettingsWithRanges>;
 
   /**
    * Base seed. The page index is appended to keep pages distinct.

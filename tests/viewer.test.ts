@@ -712,6 +712,39 @@ describe("createCourseReaderViewer", () => {
     }
   });
 
+  it("applies range overrides deterministically to every page", () => {
+    spawnHost("viewer-host-ranges");
+
+    const viewer = createCourseReaderViewer("#viewer-host-ranges", {
+      pages: FOUR_PAGES,
+      registry: freshPresetRegistry(),
+      seed: "range-viewer-seed",
+      continuous: true,
+
+      overrides: {
+        exposure: { brightness: [1.1, 1.5] },
+      },
+
+      layouts: [{ query: "all", mode: "single" }],
+    });
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(4);
+
+    for (const page of pages) {
+      const brightness = Number.parseFloat(
+        customProperty(page, "--archive-brightness"),
+      );
+
+      expect(brightness).toBeGreaterThanOrEqual(1.1);
+
+      expect(brightness).toBeLessThanOrEqual(1.5);
+    }
+
+    viewer.destroy();
+  });
+
   function slotPages(viewer: { element: HTMLElement }): HTMLElement[] {
     return [
       ...viewer.element.querySelectorAll<HTMLElement>(

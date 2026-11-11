@@ -28,7 +28,12 @@ import type {
   ScanSettings,
   ToneMode,
 } from "./types.js";
-import { clamp, resolveElement, spineScaling } from "./utils.js";
+import {
+  clamp,
+  resolveElement,
+  resolveNumericRanges,
+  spineScaling,
+} from "./utils.js";
 import { createCourseReaderViewer } from "./viewer.js";
 
 /**
@@ -110,6 +115,18 @@ const VIEWER_BOOK_SELECTOR = "#viewer-book";
 const RING_FRAME_TOP = 72;
 
 const ROTATION_RANGE = 3;
+
+/*
+ * The playground reads presets directly at places that bypass the
+ * page renderer; ranges resolve there with the same seed the desk
+ * pages would use, so display, filters and sheets stay consistent.
+ */
+function resolvePresetSettings(
+  name: string,
+  seed: string | number,
+): ScanSettings {
+  return resolveNumericRanges(presets.resolve(name), seed);
+}
 
 interface ViewerConfig {
   preset: string;
@@ -1608,7 +1625,12 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
   }
 
   function restoreDitheredGray(): void {
-    const tone = toneBeforeDither ?? presets.resolve(presetSelect.value).tone;
+    const tone =
+      toneBeforeDither ??
+      resolvePresetSettings(
+        presetSelect.value,
+        seedInput.value.trim() || presetSelect.value,
+      ).tone;
 
     toneBeforeDither = null;
 
@@ -2022,7 +2044,7 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     const enhancement =
       enhancementSelect.value as CourseReaderPageOptions["enhancement"];
 
-    const resolved = presets.resolve(preset);
+    const resolved = resolvePresetSettings(preset, seed);
 
     intendedTone = resolved.tone;
 
@@ -2232,8 +2254,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
   ringBinderToggle.addEventListener("change", () => {
     const ringTop = ringBinderToggle.checked;
 
-    const basePerspective = presets.resolve(presetSelect.value).capture
-      .perspective;
+    const basePerspective = resolvePresetSettings(
+      presetSelect.value,
+      seedInput.value.trim() || presetSelect.value,
+    ).capture.perspective;
 
     const sideUpdate =
       layoutSelect.value === "spread" ? { top: true } : { left: !ringTop };
@@ -2648,7 +2672,10 @@ function initViewerControls(shared: PlaygroundShared): () => void {
       binder.setAttribute("aria-hidden", "true");
 
       /* The binding is part of the copy: same filter as the pages. */
-      const settings = presets.resolve("microfilm-journal");
+      const settings = resolvePresetSettings(
+        "microfilm-journal",
+        config?.seed ?? 1971,
+      );
 
       const copyFilter = buildSvgFilter(
         "demo-viewer-binder-copy",

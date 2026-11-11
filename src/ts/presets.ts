@@ -8,6 +8,7 @@ import type {
   PresetDefinition,
   PresetMap,
   ScanSettings,
+  ScanSettingsWithRanges,
 } from "./types.js";
 import { deepMerge } from "./utils.js";
 
@@ -464,14 +465,10 @@ export class PresetRegistry extends Registry<PresetDefinition> {
       );
     }
 
-    const definition = (await response.json()) as
-      | PresetDefinition
-      | PresetMap;
+    const definition = (await response.json()) as PresetDefinition | PresetMap;
 
     if (typeof definition !== "object" || definition === null) {
-      throw new Error(
-        `The preset document "${url}" is not a JSON object.`,
-      );
+      throw new Error(`The preset document "${url}" is not a JSON object.`);
     }
 
     if (name) {
@@ -491,9 +488,7 @@ export class PresetRegistry extends Registry<PresetDefinition> {
       "extends",
     ];
 
-    const isSingleDefinition = settingsKeys.some(
-      (key) => key in definition,
-    );
+    const isSingleDefinition = settingsKeys.some((key) => key in definition);
 
     if (isSingleDefinition) {
       throw new Error(
@@ -552,7 +547,7 @@ export class PresetRegistry extends Registry<PresetDefinition> {
 
     const resolveDefinition = (
       presetName: string,
-    ): DeepPartial<ScanSettings> => {
+    ): DeepPartial<ScanSettingsWithRanges> => {
       if (stack.has(presetName)) {
         throw new Error(
           `Circular preset inheritance involving "${presetName}".`,
@@ -567,7 +562,7 @@ export class PresetRegistry extends Registry<PresetDefinition> {
 
       delete own.extends;
 
-      let result: DeepPartial<ScanSettings>;
+      let result: DeepPartial<ScanSettingsWithRanges>;
 
       if (parentName) {
         result = deepMerge(resolveDefinition(parentName), own);

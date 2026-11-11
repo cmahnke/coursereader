@@ -79,6 +79,55 @@ describe("PresetRegistry.resolve", () => {
   });
 });
 
+describe("PresetRegistry ranges", () => {
+  it("keeps ranges intact through define, get and export", () => {
+    const registry = freshPresetRegistry();
+
+    registry.define("ranged", {
+      paper: { tone: [0.2, 0.4] },
+      artifacts: { grain: [0, 1] },
+    });
+
+    const definition = registry.get("ranged") as Record<string, unknown>;
+
+    expect(definition.paper).toEqual({ tone: [0.2, 0.4] });
+
+    expect(definition.artifacts).toEqual({ grain: [0, 1] });
+
+    const exported = registry.export() as Record<string, unknown>;
+
+    expect(exported.ranged).toEqual({
+      paper: { tone: [0.2, 0.4] },
+      artifacts: { grain: [0, 1] },
+    });
+  });
+
+  it("resolves ranges merged over the default settings", () => {
+    const registry = freshPresetRegistry();
+
+    registry.define("ranged", { paper: { tone: [0.2, 0.4] } });
+
+    const resolved = registry.resolve("ranged");
+
+    expect(resolved.paper.tone).toEqual([0.2, 0.4]);
+
+    expect(resolved.paper.texture).toBe(defaultSettings.paper.texture);
+  });
+
+  it("resolves ranges in inherited chains", () => {
+    const registry = new PresetRegistry({
+      child: { extends: "parent", ink: { spread: [0.1, 0.2] } },
+      parent: { paper: { tone: [0.3, 0.5] } },
+    });
+
+    const resolved = registry.resolve("child");
+
+    expect(resolved.paper.tone).toEqual([0.3, 0.5]);
+
+    expect(resolved.ink.spread).toEqual([0.1, 0.2]);
+  });
+});
+
 describe("PresetRegistry.import and export", () => {
   it("imports and exports a preset map", () => {
     const registry = new PresetRegistry();
