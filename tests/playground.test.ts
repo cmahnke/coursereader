@@ -294,7 +294,7 @@ describe("Playground expert range mode", () => {
 
   function readout(): Record<string, unknown> {
     return JSON.parse(
-      document.querySelector<HTMLPreElement>("#control-settings")!.textContent!,
+      document.querySelector<HTMLTextAreaElement>("#control-settings")!.value,
     );
   }
 
@@ -489,5 +489,143 @@ describe("Playground expert range mode", () => {
     };
 
     expect(typeof definition.artifacts.grain).toBe("number");
+  });
+});
+
+describe("Playground resolved settings editor", () => {
+  let host: HTMLElement;
+
+  let handle: ReturnType<typeof createPlayground> | null = null;
+
+  afterEach(() => {
+    handle?.destroy();
+    handle = null;
+
+    host?.remove();
+  });
+
+  function startPlayground(): void {
+    host = document.createElement("div");
+
+    document.body.append(host);
+
+    handle = createPlayground(host, {
+      sections: { playground: true, viewer: false },
+    });
+  }
+
+  function settingsInput(): HTMLTextAreaElement {
+    return document.querySelector<HTMLTextAreaElement>("#control-settings")!;
+  }
+
+  function settingsEditor(): HTMLElement {
+    return document.querySelector<HTMLElement>(".demo-settings-editor")!;
+  }
+
+  function readout(): Record<string, unknown> {
+    return JSON.parse(settingsInput().value);
+  }
+
+  it("applies a valid edit to the rendered pages", () => {
+    startPlayground();
+
+    const input = settingsInput();
+
+    const current = JSON.parse(input.value) as {
+      tone: { levels: number };
+    };
+
+    current.tone.levels = 5;
+
+    input.value = JSON.stringify(current, null, 2);
+
+    input.dispatchEvent(new Event("input"));
+
+    expect(settingsEditor().classList.contains("demo-invalid")).toBe(false);
+
+    input.blur();
+
+    expect((readout().tone as { levels: number }).levels).toBe(5);
+  });
+
+  it("marks invalid JSON without touching the pages", async () => {
+    startPlayground();
+
+    const stub = stubDownload();
+
+    const input = settingsInput();
+
+    const before = input.value;
+
+    input.value = "{ not json";
+
+    input.dispatchEvent(new Event("input"));
+
+    input.blur();
+
+    expect(settingsEditor().classList.contains("demo-invalid")).toBe(true);
+
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+
+    expect(input.value).toBe("{ not json");
+
+    /* The download still serializes the untouched settings. */
+    document.querySelector<HTMLButtonElement>("#control-download")!.click();
+
+    await flushTimers();
+
+    const text = await stub.blobs[0].text();
+
+    expect(JSON.parse(text)).toEqual(JSON.parse(before));
+  });
+
+  it("clears the invalid state once the JSON parses again", () => {
+    startPlayground();
+
+    const input = settingsInput();
+
+    const valid = input.value;
+
+    input.value = "{ not json";
+
+    input.dispatchEvent(new Event("input"));
+
+    expect(settingsEditor().classList.contains("demo-invalid")).toBe(true);
+
+    input.value = valid;
+
+    input.dispatchEvent(new Event("input"));
+
+    expect(settingsEditor().classList.contains("demo-invalid")).toBe(false);
+
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+  });
+
+  it("applies the edit automatically after the debounce", async () => {
+    startPlayground();
+
+    const input = settingsInput();
+
+    const highlight = document.querySelector<HTMLPreElement>(
+      "#control-settings-highlight",
+    )!;
+
+    const current = JSON.parse(input.value) as {
+      tone: { levels: number };
+    };
+
+    current.tone.levels = 7;
+
+    input.value = JSON.stringify(current, null, 2);
+
+    input.dispatchEvent(new Event("input"));
+
+    expect(highlight.innerHTML.includes("demo-tok-key")).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    expect(
+      (JSON.parse(input.value) as { tone: { levels: number } }).tone.levels,
+    ).toBe(7);
   });
 });

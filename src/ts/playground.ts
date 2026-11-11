@@ -1220,6 +1220,49 @@ function prepareRingFrame(pages: HTMLElement[]): boolean {
   return true;
 }
 
+/*
+ * Dependency-free JSON highlighting for the resolved settings
+ * editor. The lexer runs on any text — valid or not — so tokens
+ * stay colored while a parse error marks the field red. Every
+ * fragment is HTML-escaped before it is wrapped in a span.
+ */
+function escapeHtml(fragment: string): string {
+  return fragment
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function highlightJson(source: string): string {
+  const pattern =
+    /("(?:[^"\\]|\\.)*")(?=\s*:)|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b/g;
+
+  let markup = "";
+  let lastIndex = 0;
+
+  for (const match of source.matchAll(pattern)) {
+    const index = match.index ?? 0;
+
+    markup += escapeHtml(source.slice(lastIndex, index));
+
+    if (match[1] !== undefined) {
+      markup += `<span class="demo-tok-key">${escapeHtml(match[1])}</span>`;
+    } else if (match[2] !== undefined) {
+      markup += `<span class="demo-tok-string">${escapeHtml(match[2])}</span>`;
+    } else if (match[3] !== undefined) {
+      markup += `<span class="demo-tok-number">${escapeHtml(match[3])}</span>`;
+    } else {
+      markup += `<span class="demo-tok-literal">${escapeHtml(match[4] ?? "")}</span>`;
+    }
+
+    lastIndex = index + match[0].length;
+  }
+
+  markup += escapeHtml(source.slice(lastIndex));
+
+  return markup;
+}
+
 /* ==========================================================================
  * Markup
  * ========================================================================== */
@@ -1278,7 +1321,7 @@ const PANEL_MARKUP = `
     </label>
   </fieldset>
 
-  <fieldset>
+  <fieldset class="demo-seed-row">
     <legend>Seed</legend>
     <input
       id="control-seed"
@@ -1355,7 +1398,16 @@ const PANEL_MARKUP = `
 
   <fieldset>
     <legend>Resolved settings</legend>
-    <pre id="control-settings" aria-label="Resolved scan settings"></pre>
+    <div class="demo-settings-editor">
+      <pre id="control-settings-highlight" aria-hidden="true"></pre>
+      <textarea
+        id="control-settings"
+        spellcheck="false"
+        wrap="off"
+        aria-label="Resolved scan settings"
+        aria-invalid="false"
+      ></textarea>
+    </div>
   </fieldset>
 `;
 
@@ -1510,8 +1562,16 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
   const destroyButton =
     document.querySelector<HTMLButtonElement>("#control-destroy")!;
 
-  const settingsOutput =
-    document.querySelector<HTMLPreElement>("#control-settings")!;
+  const settingsEditor = document.querySelector<HTMLDivElement>(
+    ".demo-settings-editor",
+  )!;
+
+  const settingsInput =
+    document.querySelector<HTMLTextAreaElement>("#control-settings")!;
+
+  const settingsHighlight = document.querySelector<HTMLPreElement>(
+    "#control-settings-highlight",
+  )!;
 
   const overridesFieldset =
     document.querySelector<HTMLFieldSetElement>("#control-overrides")!;
@@ -1824,9 +1884,22 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
   let intendedTone: ScanSettingsWithRanges["tone"];
 
   function updateReadout(): void {
-    settingsOutput.textContent = pages.length
+    if (document.activeElement === settingsInput) {
+      return;
+    }
+
+    settingsInput.value = pages.length
       ? JSON.stringify(pages[0].settings, null, 2)
       : "// effect destroyed";
+
+    /*
+     * A programmatic overwrite is always valid canonical JSON,
+     * so any stale invalid state from a dropped edit clears here.
+     */
+    settingsEditor.classList.remove("demo-invalid");
+    settingsInput.setAttribute("aria-invalid", "false");
+
+    highlightSettings();
   }
 
   /*
@@ -1967,6 +2040,13 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     }
 
     downloadButton.disabled = disabled;
+
+    settingsInput.disabled = disabled;
+
+    if (disabled) {
+      settingsEditor.classList.remove("demo-invalid");
+      settingsInput.setAttribute("aria-invalid", "false");
+    }
   }
 
   function destroyPages(): void {
@@ -2586,6 +2666,84 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     seedInput.value = Math.random().toString(36).slice(2, 10);
 
     createPages();
+  });
+
+  /*
+   * Resolved settings editor: the textarea mirrors the readout's
+   * JSON with a highlight layer behind it. Valid edits apply to
+   * every page after a short debounce — and immediately when
+   * editing ends — while parse errors mark the field red.
+   */
+  let settingsApplyTimer = 0;
+
+  function readSettingsEdit(): DeepPartial<ScanSettingsWithRanges> | null {
+    try {
+      const parsed: unknown = JSON.parse(settingsInput.value);
+
+      return typeof parsed === "object" && parsed !== null
+        ? (parsed as DeepPartial<ScanSettingsWithRanges>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function validateSettingsEdit(): boolean {
+    const valid = readSettingsEdit() !== null;
+
+    settingsEditor.classList.toggle("demo-invalid", !valid);
+    settingsInput.setAttribute("aria-invalid", String(!valid));
+
+    return valid;
+  }
+
+  function applySettingsEdit(): void {
+    window.clearTimeout(settingsApplyTimer);
+
+    settingsApplyTimer = 0;
+
+    const parsed = readSettingsEdit();
+
+    if (!parsed) {
+      return;
+    }
+
+    for (const page of pages) {
+      page.update(parsed);
+    }
+
+    updateReadout();
+  }
+
+  function highlightSettings(): void {
+    settingsHighlight.innerHTML = highlightJson(settingsInput.value);
+  }
+
+  settingsInput.addEventListener("input", () => {
+    highlightSettings();
+
+    window.clearTimeout(settingsApplyTimer);
+
+    if (!validateSettingsEdit()) {
+      return;
+    }
+
+    settingsApplyTimer = window.setTimeout(applySettingsEdit, 400);
+  });
+
+  settingsInput.addEventListener("blur", () => {
+    window.clearTimeout(settingsApplyTimer);
+
+    if (!validateSettingsEdit()) {
+      return;
+    }
+
+    applySettingsEdit();
+  });
+
+  settingsInput.addEventListener("scroll", () => {
+    settingsHighlight.scrollTop = settingsInput.scrollTop;
+    settingsHighlight.scrollLeft = settingsInput.scrollLeft;
   });
 
   /*
