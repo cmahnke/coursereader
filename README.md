@@ -419,6 +419,52 @@ below the previous one — pages in single layouts, paired rows in
 spread layouts — and scroll through the stack. Navigation buttons
 and arrow keys scroll to the current seat instead of paging.
 
+### Links
+
+Links inside the pages read as ink: the browser's default link,
+visited and hover colours would survive the tone processing as
+mid-gray, so they are overridden. An underline appears only on
+mouse hover and keyboard focus. The show-through ghost mirrors the
+content behind the paper — its links are part of the print and
+always stay plain black with no decoration.
+
+### Linking between pages
+
+Give each page element an id and link to it with a fragment URL:
+
+```html
+<article id="page-1">
+  <p>See <a href="#page-4">the appendix</a> for the parish index.</p>
+</article>
+
+<article id="page-4">
+  <h2>Appendix</h2>
+  <p>Deep links to sections inside a page also work:</p>
+  <section id="appendix-2">
+    <a href="#page-1">Back to the cover</a>
+  </section>
+</article>
+```
+
+Enable `followLinks` on the viewer options to intercept clicks on
+those fragment links:
+
+```ts
+const viewer = createCourseReaderViewer("#reader", {
+  pages: ["#page-1", "#page-4"],
+  followLinks: true,
+  layouts: [{ query: "all", mode: "single" }],
+});
+```
+
+The click resolves to the first page whose source carries the
+target id — either the page itself or any descendant, so both
+`#page-4` and `#appendix-2` land on the second page. In paged
+mode the page is seated; in continuous mode the stack scrolls to
+it. Links without a matching fragment keep the browser's default
+behaviour, as do links opened with modifier keys (Cmd/Ctrl/Shift/
+Alt) or in a new target.
+
 Navigation:
 
 ```ts

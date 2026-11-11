@@ -36,6 +36,43 @@
   background: var(--archive-paper);
 }
 
+/*
+ * Links read as ink, like every other mark on the copy: the
+ * browser's default link, visited and hover colours would survive
+ * the tone processing as mid-gray. An underline is reserved for
+ * mouseover and keyboard focus.
+ */
+.archive-scan-page a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.archive-scan-page a:visited {
+  color: inherit;
+}
+
+.archive-scan-page a:hover,
+.archive-scan-page a:focus-visible {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/*
+ * The show-through ghost mirrors the content behind the paper: its
+ * links are part of the print, not interactive — solid ink, no
+ * affordances, in every state. Declared after the rules above so
+ * it wins the equal-specificity cascade.
+ */
+.archive-scan-content .archive-scan-shinethru a,
+.archive-scan-content .archive-scan-shinethru a:link,
+.archive-scan-content .archive-scan-shinethru a:visited,
+.archive-scan-content .archive-scan-shinethru a:hover,
+.archive-scan-content .archive-scan-shinethru a:focus-visible,
+.archive-scan-content .archive-scan-shinethru a:active {
+  color: black;
+  text-decoration: none;
+}
+
 .archive-scan-shinethru {
   position: absolute;
   inset: 0;

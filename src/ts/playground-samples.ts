@@ -129,7 +129,10 @@ export const VIEWER_PAGES: string[] = [
       <p class="paper-kicker">Annual Bulletin</p>
       <h1>Reports of the<br />Ridgeline Survey</h1>
       <p>Volume XII · 1968–1971</p>
-      <p>Prepared for the Advisory Committee on Rural Surveys</p>
+      <p>
+        Prepared for the
+        <a href="#viewer-page-2">Advisory Committee on Rural Surveys</a>
+      </p>
       <p class="viewer-imprint">The Field Station Press</p>
     </article>
   `,

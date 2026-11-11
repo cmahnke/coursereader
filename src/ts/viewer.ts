@@ -150,7 +150,9 @@ function createSlot(
  * switches layouts as the supplied media queries match. Navigation
  * moves by one page in single mode and two pages in spread mode.
  * With the `continuous` option every seat stacks below the previous
- * one and navigation scrolls through the stack instead.
+ * one and navigation scrolls through the stack instead. With
+ * `followLinks` fragment links inside the pages navigate to the
+ * page containing the target id.
  *
  * @param target - Host element or selector that receives the viewer.
  * @param options - Pages, presets, layouts and registry overrides.
@@ -500,8 +502,87 @@ export function createCourseReaderViewer(
     void refresh();
   }
 
+  async function goTo(index: number): Promise<void> {
+    currentPage = Math.max(
+      0,
+      Math.min(renderedPages.length - 1, Math.floor(index)),
+    );
+
+    if (options.continuous === true) {
+      scrollToCurrentPage();
+
+      return;
+    }
+
+    await refresh();
+  }
+
+  /*
+   * Fragment links between pages become viewer navigation: the
+   * click resolves to the first page whose source carries the
+   * target id — either as the page itself or as a descendant, so
+   * deep links like `#section-2` inside a page land on that page.
+   * Unseated pages are detached from the document, hence the
+   * lookup against the source elements instead of the document.
+   */
+  function handleViewerClick(event: MouseEvent): void {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const anchor = event.target.closest("a[href]");
+
+    if (!(anchor instanceof HTMLAnchorElement)) {
+      return;
+    }
+
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    if (anchor.target === "_blank") {
+      return;
+    }
+
+    const href = anchor.getAttribute("href");
+
+    if (!href || !href.startsWith("#")) {
+      return;
+    }
+
+    const fragment = href.slice(1);
+
+    if (!fragment) {
+      return;
+    }
+
+    const index = sourcePages.findIndex(
+      (source) =>
+        source.id === fragment ||
+        source.querySelector(`#${CSS.escape(fragment)}`) !== null,
+    );
+
+    if (index === -1) {
+      return;
+    }
+
+    event.preventDefault();
+
+    void goTo(index);
+  }
+
   for (const query of mediaQueries) {
     query.addEventListener("change", handleMediaChange);
+  }
+
+  if (options.followLinks === true) {
+    viewer.addEventListener("click", handleViewerClick);
   }
 
   void refresh();
@@ -515,18 +596,7 @@ export function createCourseReaderViewer(
     },
 
     async goTo(index: number): Promise<void> {
-      currentPage = Math.max(
-        0,
-        Math.min(renderedPages.length - 1, Math.floor(index)),
-      );
-
-      if (options.continuous === true) {
-        scrollToCurrentPage();
-
-        return;
-      }
-
-      await refresh();
+      await goTo(index);
     },
 
     async next(): Promise<void> {
@@ -575,6 +645,8 @@ export function createCourseReaderViewer(
       for (const query of mediaQueries) {
         query.removeEventListener("change", handleMediaChange);
       }
+
+      viewer.removeEventListener("click", handleViewerClick);
 
       for (const page of renderedPages) {
         page.destroy();

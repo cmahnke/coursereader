@@ -335,6 +335,134 @@ describe("createCourseReaderViewer", () => {
     viewer.destroy();
   });
 
+  it("navigates on a fragment link when followLinks is enabled", async () => {
+    const link = document.createElement("a");
+
+    link.setAttribute("href", "#viewer-page-3");
+
+    link.textContent = "To the results";
+
+    document.querySelector("#viewer-page-1")!.append(link);
+
+    const viewer = createSingleViewer({ followLinks: true });
+
+    link.click();
+
+    expect(viewer.getPage()).toBe(2);
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(1);
+
+    expect(pages[0]!.contains(document.querySelector("#viewer-page-3")!)).toBe(
+      true,
+    );
+
+    viewer.destroy();
+  });
+
+  it("follows a deep link to the page containing the target id", async () => {
+    const section = document.createElement("section");
+
+    section.id = "viewer-section-4";
+
+    document.querySelector("#viewer-page-4")!.append(section);
+
+    const link = document.createElement("a");
+
+    link.setAttribute("href", "#viewer-section-4");
+
+    link.textContent = "To the appendix";
+
+    document.querySelector("#viewer-page-1")!.append(link);
+
+    const viewer = createSingleViewer({ followLinks: true });
+
+    link.click();
+
+    expect(viewer.getPage()).toBe(3);
+
+    viewer.destroy();
+  });
+
+  it("leaves links alone when followLinks is disabled", async () => {
+    const link = document.createElement("a");
+
+    link.setAttribute("href", "#viewer-page-3");
+
+    link.textContent = "To the results";
+
+    document.querySelector("#viewer-page-1")!.append(link);
+
+    const viewer = createSingleViewer();
+
+    link.click();
+
+    expect(viewer.getPage()).toBe(0);
+
+    viewer.destroy();
+  });
+
+  it("keeps the browser default for unknown fragments", async () => {
+    const link = document.createElement("a");
+
+    link.setAttribute("href", "#does-not-exist");
+
+    link.textContent = "Unknown";
+
+    document.querySelector("#viewer-page-1")!.append(link);
+
+    const viewer = createSingleViewer({ followLinks: true });
+
+    link.click();
+
+    expect(viewer.getPage()).toBe(0);
+
+    viewer.destroy();
+  });
+
+  it("keeps the browser default for modifier clicks", async () => {
+    const link = document.createElement("a");
+
+    link.setAttribute("href", "#viewer-page-3");
+
+    link.textContent = "To the results";
+
+    document.querySelector("#viewer-page-1")!.append(link);
+
+    const viewer = createSingleViewer({ followLinks: true });
+
+    link.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, ctrlKey: true }),
+    );
+
+    expect(viewer.getPage()).toBe(0);
+
+    viewer.destroy();
+  });
+
+  it("navigates in continuous mode without replacing the stack", async () => {
+    const link = document.createElement("a");
+
+    link.setAttribute("href", "#viewer-page-3");
+
+    link.textContent = "To the results";
+
+    document.querySelector("#viewer-page-1")!.append(link);
+
+    const viewer = createSpreadViewer({ continuous: true, followLinks: true });
+
+    const firstSlot = viewer.element.querySelector(".archive-scan-slot");
+
+    link.click();
+
+    expect(viewer.getPage()).toBe(2);
+
+    expect(viewer.element.querySelector(".archive-scan-slot")).toBe(firstSlot);
+
+    viewer.destroy();
+  });
+
   it("advances by two pages in spread mode and clamps", async () => {
     const viewer = createSpreadViewer();
 
@@ -602,13 +730,16 @@ describe("createCourseReaderViewer", () => {
     return host;
   }
 
-  function createSingleViewer(options: { continuous?: boolean } = {}) {
+  function createSingleViewer(
+    options: { continuous?: boolean; followLinks?: boolean } = {},
+  ) {
     spawnHost("viewer-host-spawned");
 
     return createCourseReaderViewer("#viewer-host-spawned", {
       pages: FOUR_PAGES,
       registry: freshPresetRegistry(),
       continuous: options.continuous,
+      followLinks: options.followLinks,
       layouts: [{ query: "all", mode: "single" }],
     });
   }
@@ -627,6 +758,7 @@ describe("createCourseReaderViewer", () => {
       registry: freshPresetRegistry(),
       bindingRegistry: freshBindingRegistry(),
       continuous: options.continuous,
+      followLinks: options.followLinks,
 
       overrides: {
         border: { enabled: true, thickness: 24, darkness: 0.9 },

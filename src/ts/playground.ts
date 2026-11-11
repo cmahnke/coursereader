@@ -2620,6 +2620,9 @@ function initViewerControls(shared: PlaygroundShared): () => void {
          each other, or facing-page rows in spread mode. */
       continuous: continuousToggle.checked,
 
+      /* Fragment links between pages navigate the viewer. */
+      followLinks: true,
+
       /* The spine scales with the same pages-per-side control
          that drives the desk's fold. */
       spinePages: shared.pageCount,

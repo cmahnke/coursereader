@@ -426,6 +426,15 @@ export interface CourseReaderViewerOptions {
   continuous?: boolean;
 
   /**
+   * Intercept clicks on fragment links inside the viewer and
+   * navigate to the page containing the target id. Links that do
+   * not match a page, and links opened with modifier keys or in a
+   * new target, keep the browser's default behaviour. Defaults to
+   * `false`.
+   */
+  followLinks?: boolean;
+
+  /**
    * Enhancement strategy used for every page.
    */
   enhancement?: "auto" | "svg" | "css";

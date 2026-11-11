@@ -388,8 +388,21 @@ input:focus-visible {
   font-size: 1.02rem;
 }
 
+/* Links on the desk's paper read as ink like the core stylesheet:
+   no browser colours, underline on mouseover and keyboard focus. */
 .paper a {
-  color: #1d3a8f;
+  color: inherit;
+  text-decoration: none;
+}
+
+.paper a:visited {
+  color: inherit;
+}
+
+.paper a:hover,
+.paper a:focus-visible {
+  color: inherit;
+  text-decoration: underline;
 }
 
 /* Selection reads as an inversion — dark highlight, light text —
