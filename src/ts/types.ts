@@ -379,7 +379,10 @@ export interface ResponsiveLayout {
 
   spread?: {
     /**
-     * Most books begin with page 1 on the right.
+     * Which side the first page sits on. With the default `"left"`
+     * pages pair sequentially (1-2, 3-4, 5-6, …) so every spread is
+     * full. With `"right"` the first page sits alone on the right
+     * like a book cover, then pages pair (2-3, 4-5, …).
      */
     firstPageSide?: "left" | "right";
   };

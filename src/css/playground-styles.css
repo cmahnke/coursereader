@@ -8,8 +8,10 @@
   --demo-paper: #fdfcf9;
 
   color-scheme: dark;
+  display: flex;
+  flex-direction: column;
   margin: 0;
-  min-height: 100%;
+  min-height: 100dvh;
   background: var(--demo-desk);
   color: var(--demo-ink);
   font-family:
@@ -23,6 +25,17 @@
 .demo-shell,
 .demo-shell * {
   box-sizing: border-box;
+}
+
+/*
+ * The shell stretches to the full viewport; the main area grows
+ * into the remaining height so the active section — the viewer in
+ * particular — can fill it instead of leaving a gap at the bottom.
+ */
+.demo-shell main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
 }
 
 /* ==========================================================================
@@ -108,9 +121,13 @@ input:focus-visible {
 /*
  * The viewer section spans the full window width; width
  * constraints live on the toolbar row so the preview can fill
- * the window without overflowing it.
+ * the window without overflowing it. The section grows into the
+ * remaining main height so the viewer never leaves a gap below.
  */
 #section-viewer {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   margin: 0;
   padding: 0;
 }
@@ -508,6 +525,7 @@ input:focus-visible {
    and rings dipping over the sheets' top edge. */
 .demo-reader .archive-scan-viewer {
   position: relative;
+  flex: 1 1 auto;
 }
 
 .archive-scan-viewer.demo-ring-top {
@@ -754,10 +772,14 @@ input:focus-visible {
  * resolves to the window width minus the vertical scrollbar, so
  * the page never overflows horizontally. The element stays a
  * positioning context: the demo's ring binder is absolutely
- * positioned against it.
+ * positioned against it. As a flex column it passes the section's
+ * remaining height down to the viewer.
  */
 #reader {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   width: 100%;
 }
 

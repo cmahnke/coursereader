@@ -116,8 +116,49 @@ describe("createCourseReaderViewer", () => {
     viewer.destroy();
   });
 
-  it("pairs pages right-first in spread mode", async () => {
+  it("pairs pages sequentially in spread mode", async () => {
     const viewer = createSpreadViewer();
+
+    await viewer.goTo(0);
+
+    /* The opening spread seats pages one and two. */
+    const opening = slotPages(viewer);
+
+    expect(opening).toHaveLength(2);
+
+    expect(
+      opening[0]!.contains(document.querySelector("#viewer-page-1")!),
+    ).toBe(true);
+
+    expect(
+      opening[1]!.contains(document.querySelector("#viewer-page-2")!),
+    ).toBe(true);
+
+    expect(viewer.element.querySelector(".archive-scan-empty")).toBeNull();
+
+    await viewer.goTo(2);
+
+    expect(viewer.element.querySelector(".archive-scan-empty")).toBeNull();
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(2);
+
+    /* Even pages sit on the left: the spread at page three shows
+       pages three and four. */
+    expect(pages[0]!.contains(document.querySelector("#viewer-page-3")!)).toBe(
+      true,
+    );
+
+    expect(pages[1]!.contains(document.querySelector("#viewer-page-4")!)).toBe(
+      true,
+    );
+
+    viewer.destroy();
+  });
+
+  it("pairs pages right-first when configured", async () => {
+    const viewer = createSpreadViewer({ firstPageSide: "right" });
 
     await viewer.goTo(0);
 
@@ -147,6 +188,24 @@ describe("createCourseReaderViewer", () => {
     );
 
     expect(pages[1]!.contains(document.querySelector("#viewer-page-3")!)).toBe(
+      true,
+    );
+
+    viewer.destroy();
+  });
+
+  it("starts on a full two-page spread", () => {
+    const viewer = createSpreadViewer();
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(2);
+
+    expect(pages[0]!.contains(document.querySelector("#viewer-page-1")!)).toBe(
+      true,
+    );
+
+    expect(pages[1]!.contains(document.querySelector("#viewer-page-2")!)).toBe(
       true,
     );
 
@@ -213,6 +272,20 @@ describe("createCourseReaderViewer", () => {
     expect(gutters[0]!.dataset.edge).toBe("right");
 
     expect(gutters[1]!.dataset.edge).toBe("left");
+
+    viewer.destroy();
+  });
+
+  it("does not duplicate gutters when re-seating a spread", async () => {
+    const viewer = createSpreadViewer({ gutter: "subtle" });
+
+    await viewer.goTo(1);
+
+    await viewer.goTo(1);
+
+    expect(
+      viewer.element.querySelectorAll(".archive-scan-gutter"),
+    ).toHaveLength(2);
 
     viewer.destroy();
   });
@@ -284,7 +357,10 @@ describe("createCourseReaderViewer", () => {
       0,
     );
 
-    const spread = createSpreadViewer({ gutter: "subtle" });
+    const spread = createSpreadViewer({
+      gutter: "subtle",
+      firstPageSide: "right",
+    });
 
     /* The opening spread seats page one alone on the right. */
     await spread.goTo(0);
@@ -414,7 +490,10 @@ describe("createCourseReaderViewer", () => {
   }
 
   function createSpreadViewer(
-    options: { gutter?: ResponsiveLayout["gutter"] } = {},
+    options: {
+      gutter?: ResponsiveLayout["gutter"];
+      firstPageSide?: "left" | "right";
+    } = {},
   ) {
     spawnHost("viewer-host-spawned");
 
@@ -433,6 +512,9 @@ describe("createCourseReaderViewer", () => {
           mode: "spread",
           gap: 0,
           gutter: options.gutter ?? false,
+          spread: options.firstPageSide
+            ? { firstPageSide: options.firstPageSide }
+            : undefined,
         },
       ],
     });

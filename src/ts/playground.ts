@@ -2520,10 +2520,6 @@ function initViewerControls(shared: PlaygroundShared): () => void {
               ),
             },
         background: "#222",
-
-        spread: {
-          firstPageSide: "right",
-        },
       },
     ];
   }

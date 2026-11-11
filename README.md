@@ -403,14 +403,16 @@ const viewer = createCourseReaderViewer("#reader", {
       gap: 0,
       gutter: "deep-bound-volume",
       background: "#222",
-
-      spread: {
-        firstPageSide: "right",
-      },
     },
   ],
 });
 ```
+
+In spread mode pages pair sequentially (1-2, 3-4, 5-6, …) so the
+viewer opens on a full two-page spread. Set
+`spread: { firstPageSide: "right" }` on a layout to seat the first
+page alone on the right like a book cover, then pair the remaining
+pages (2-3, 4-5, …).
 
 Navigation:
 

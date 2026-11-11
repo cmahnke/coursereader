@@ -235,7 +235,7 @@ export function createCourseReaderViewer(
   function spreadIndices(
     layout: ResponsiveLayout,
   ): [number | null, number | null] {
-    const firstSide = layout.spread?.firstPageSide ?? "right";
+    const firstSide = layout.spread?.firstPageSide ?? "left";
 
     if (firstSide === "right") {
       if (currentPage === 0) {
@@ -297,6 +297,15 @@ export function createCourseReaderViewer(
     viewer.dataset.fit = layout.pageFit ?? "contain";
 
     viewer.style.setProperty("--archive-gap", `${layout.gap ?? 0}px`);
+
+    /*
+     * The gutter lives on the sheet between refreshes, so stale
+     * ones are stripped before pages are re-seated — otherwise
+     * revisiting a spread accumulates duplicates.
+     */
+    for (const page of renderedPages) {
+      page.element.querySelector(".archive-scan-gutter")?.remove();
+    }
 
     if (layout.background) {
       viewer.style.background = layout.background;
