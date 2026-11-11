@@ -138,6 +138,7 @@ input:focus-visible {
 
 .demo-panel {
   flex: 0 0 300px;
+  min-width: 0;
   padding: 0.75rem;
   border: 1px solid #44423e;
   border-radius: 8px;
@@ -149,6 +150,10 @@ input:focus-visible {
   padding: 0.6rem 0.75rem 0.75rem;
   border: 1px solid #44423e;
   border-radius: 6px;
+
+  /* Chrome gives fieldsets min-width: min-content, which would
+     propagate the JSON readout's long lines into the panel width. */
+  min-width: 0;
 }
 
 .demo-panel legend {
@@ -269,6 +274,74 @@ input:focus-visible {
 .demo-slider select {
   grid-column: 1 / -1;
   width: 100%;
+}
+
+/*
+ * Expert range mode: the panel root carries `demo-ranges`, every
+ * range-capable slider swaps its single input for two stacked
+ * handles. The inputs are transparent to pointer events so the
+ * thumbs underneath stay reachable; only the handles take hits.
+ */
+.demo-slider-dual {
+  display: none;
+  position: relative;
+  width: 100%;
+  height: 1.1rem;
+  align-self: center;
+}
+
+.demo-slider-dual::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: var(--lo, 0%);
+  width: calc(var(--hi, 0%) - var(--lo, 0%));
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--demo-accent);
+  pointer-events: none;
+}
+
+.demo-slider-dual input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.demo-slider-dual input[type="range"]:focus {
+  z-index: 2;
+}
+
+.demo-slider-dual input[type="range"]::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+
+.demo-slider-dual input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+}
+
+.demo-ranges .demo-slider > input[type="range"] {
+  display: none;
+}
+
+.demo-ranges .demo-slider-dual {
+  display: block;
+}
+
+/*
+ * The range readout holds two values; a fixed box keeps the
+ * slider track from resizing while the values change. The width
+ * covers the widest readout ("0.02 – 1.00"), and clipping keeps
+ * the row height and the panel geometry unaffected by the text.
+ */
+.demo-ranges .demo-slider output {
+  width: 12ch;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* Collapsed advanced settings below the live overrides. */

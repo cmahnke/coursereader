@@ -733,6 +733,16 @@ settings" section below the live overrides exposes every remaining
 curve, ink erosion, all scan artifacts, capture handling and the
 copier frame's darkness, thickness, roughness and sides.
 
+The advanced settings also carry the expert "Ranges" toggle. When
+it is active, every numeric slider grows a second handle and
+authors a `[min, max]` range instead of a single value: the pages
+pick a fresh value between the handles, deterministically from the
+seed, so each rendered sheet is a different copy of the same
+setting. Authored ranges round-trip — the preset download emits
+them as arrays and "Show in viewer" passes them through to the
+viewer's pages — and leaving the toggle or switching the preset
+collapses the sliders back to single values.
+
 ## API overview
 
 | Export                                            | Purpose                                          |

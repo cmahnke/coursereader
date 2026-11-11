@@ -26,10 +26,12 @@ import type {
   PresetDefinition,
   ResponsiveLayout,
   ScanSettings,
+  ScanSettingsWithRanges,
   ToneMode,
 } from "./types.js";
 import {
   clamp,
+  deepMerge,
   resolveElement,
   resolveNumericRanges,
   spineScaling,
@@ -132,7 +134,7 @@ interface ViewerConfig {
   preset: string;
   seed: string | number;
   enhancement: CourseReaderPageOptions["enhancement"];
-  overrides: DeepPartial<ScanSettings>;
+  overrides: DeepPartial<ScanSettingsWithRanges>;
 
   /**
    * Whether the playground's ring binder toggle was active when
@@ -171,6 +173,7 @@ interface PanelState {
    * The tone settings the reproduction pipeline is meant to use.
    * In facing-pages mode the pages render continuously and this
    * carries the tone; in single-page mode it mirrors the pages.
+   * Authored ranges in it are resolved before it is handed out.
    */
   intendedTone: ScanSettings["tone"];
 
@@ -237,6 +240,13 @@ interface RangeControl extends ControlBase {
   apply(value: number): DeepPartial<ScanSettings>;
 
   /**
+   * When present, the control supports the expert range mode: the
+   * slider grows a second handle and applies the pair as a
+   * `[min, max]` range instead of a single value.
+   */
+  applyRange?(min: number, max: number): DeepPartial<ScanSettingsWithRanges>;
+
+  /**
    * Formats the output readout; defaults to the raw value.
    */
   format?(value: number): string;
@@ -290,6 +300,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.05,
     read: (settings) => settings.exposure.contrast,
     apply: (value) => ({ exposure: { contrast: value } }),
+    applyRange: (min, max) => ({ exposure: { contrast: [min, max] } }),
   },
 
   {
@@ -310,6 +321,12 @@ const CONTROLS: ControlDefinition[] = [
       tone: {
         mode: "quantized",
         levels: levelsFromPosition(value),
+      },
+    }),
+    applyRange: (min, max) => ({
+      tone: {
+        mode: "quantized",
+        levels: [levelsFromPosition(min), levelsFromPosition(max)],
       },
     }),
     format: (value) => String(levelsFromPosition(value)),
@@ -336,6 +353,12 @@ const CONTROLS: ControlDefinition[] = [
         threshold: value,
       },
     }),
+    applyRange: (min, max) => ({
+      tone: {
+        mode: "bitonal",
+        threshold: [min, max],
+      },
+    }),
     disabled: (state) => state.ditheredGray,
   },
 
@@ -350,6 +373,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.ink.spread,
     apply: (value) => ({ ink: { spread: value } }),
+    applyRange: (min, max) => ({ ink: { spread: [min, max] } }),
   },
 
   {
@@ -363,6 +387,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.ink.blur,
     apply: (value) => ({ ink: { blur: value } }),
+    applyRange: (min, max) => ({ ink: { blur: [min, max] } }),
   },
 
   {
@@ -376,6 +401,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.grain,
     apply: (value) => ({ artifacts: { grain: value } }),
+    applyRange: (min, max) => ({ artifacts: { grain: [min, max] } }),
   },
 
   {
@@ -395,6 +421,10 @@ const CONTROLS: ControlDefinition[] = [
     apply: (value) =>
       value > 0
         ? { tone: { dither: "random", ditherAmount: value } }
+        : { tone: { ditherAmount: 0 } },
+    applyRange: (min, max) =>
+      min > 0 || max > 0
+        ? { tone: { dither: "random", ditherAmount: [min, max] } }
         : { tone: { ditherAmount: 0 } },
     disabled: (state) => state.ditheredGray,
   },
@@ -458,6 +488,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.shineThrough,
     apply: (value) => ({ artifacts: { shineThrough: value } }),
+    applyRange: (min, max) => ({ artifacts: { shineThrough: [min, max] } }),
   },
 
   {
@@ -482,6 +513,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.paper.tone,
     apply: (value) => ({ paper: { tone: value } }),
+    applyRange: (min, max) => ({ paper: { tone: [min, max] } }),
   },
 
   {
@@ -496,6 +528,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.paper.texture,
     apply: (value) => ({ paper: { texture: value } }),
+    applyRange: (min, max) => ({ paper: { texture: [min, max] } }),
   },
 
   {
@@ -510,6 +543,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.exposure.brightness,
     apply: (value) => ({ exposure: { brightness: value } }),
+    applyRange: (min, max) => ({ exposure: { brightness: [min, max] } }),
   },
 
   {
@@ -524,6 +558,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.exposure.gamma,
     apply: (value) => ({ exposure: { gamma: value } }),
+    applyRange: (min, max) => ({ exposure: { gamma: [min, max] } }),
   },
 
   {
@@ -538,6 +573,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.exposure.unevenness,
     apply: (value) => ({ exposure: { unevenness: value } }),
+    applyRange: (min, max) => ({ exposure: { unevenness: [min, max] } }),
   },
 
   {
@@ -552,6 +588,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.exposure.blownHighlights,
     apply: (value) => ({ exposure: { blownHighlights: value } }),
+    applyRange: (min, max) => ({ exposure: { blownHighlights: [min, max] } }),
   },
 
   {
@@ -566,6 +603,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.exposure.crushedShadows,
     apply: (value) => ({ exposure: { crushedShadows: value } }),
+    applyRange: (min, max) => ({ exposure: { crushedShadows: [min, max] } }),
   },
 
   {
@@ -580,6 +618,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.ink.erosion,
     apply: (value) => ({ ink: { erosion: value } }),
+    applyRange: (min, max) => ({ ink: { erosion: [min, max] } }),
   },
 
   {
@@ -633,6 +672,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.dust,
     apply: (value) => ({ artifacts: { dust: value } }),
+    applyRange: (min, max) => ({ artifacts: { dust: [min, max] } }),
   },
 
   {
@@ -647,6 +687,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.scratches,
     apply: (value) => ({ artifacts: { scratches: value } }),
+    applyRange: (min, max) => ({ artifacts: { scratches: [min, max] } }),
   },
 
   {
@@ -661,6 +702,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.bleedThrough,
     apply: (value) => ({ artifacts: { bleedThrough: value } }),
+    applyRange: (min, max) => ({ artifacts: { bleedThrough: [min, max] } }),
   },
 
   {
@@ -675,6 +717,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.verticalStreaks,
     apply: (value) => ({ artifacts: { verticalStreaks: value } }),
+    applyRange: (min, max) => ({ artifacts: { verticalStreaks: [min, max] } }),
   },
 
   {
@@ -689,6 +732,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.horizontalBands,
     apply: (value) => ({ artifacts: { horizontalBands: value } }),
+    applyRange: (min, max) => ({ artifacts: { horizontalBands: [min, max] } }),
   },
 
   {
@@ -703,6 +747,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.artifacts.edgeNoise,
     apply: (value) => ({ artifacts: { edgeNoise: value } }),
+    applyRange: (min, max) => ({ artifacts: { edgeNoise: [min, max] } }),
   },
 
   {
@@ -728,6 +773,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.capture.perspective,
     apply: (value) => ({ capture: { perspective: value } }),
+    applyRange: (min, max) => ({ capture: { perspective: [min, max] } }),
     disabled: (state) => state.ringBinder,
   },
 
@@ -743,6 +789,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.capture.rotationJitter,
     apply: (value) => ({ capture: { rotationJitter: value } }),
+    applyRange: (min, max) => ({ capture: { rotationJitter: [min, max] } }),
     disabled: (state) => state.ringBinder,
   },
 
@@ -758,6 +805,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.border.darkness,
     apply: (value) => ({ border: { darkness: value } }),
+    applyRange: (min, max) => ({ border: { darkness: [min, max] } }),
   },
 
   {
@@ -772,6 +820,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 1,
     read: (settings) => settings.border.thickness,
     apply: (value) => ({ border: { thickness: value } }),
+    applyRange: (min, max) => ({ border: { thickness: [min, max] } }),
   },
 
   {
@@ -786,6 +835,7 @@ const CONTROLS: ControlDefinition[] = [
     step: 0.02,
     read: (settings) => settings.border.roughness,
     apply: (value) => ({ border: { roughness: value } }),
+    applyRange: (min, max) => ({ border: { roughness: [min, max] } }),
   },
 
   {
@@ -882,6 +932,31 @@ function panelControlMarkup(id: string): string {
   }
 
   if (control.kind === "range") {
+    const dual =
+      control.applyRange !== undefined
+        ? `
+      <span class="demo-slider-dual" id="${control.id}-dual">
+        <input
+          id="${control.id}-range-min"
+          type="range"
+          min="${control.min}"
+          max="${control.max}"
+          step="${control.step}"
+          value="0"
+          aria-label="${control.label} minimum"
+        />
+        <input
+          id="${control.id}-range-max"
+          type="range"
+          min="${control.min}"
+          max="${control.max}"
+          step="${control.step}"
+          value="0"
+          aria-label="${control.label} maximum"
+        />
+      </span>`
+        : "";
+
     return `
     <label class="demo-slider">
       ${controlTitleMarkup(control)}
@@ -894,6 +969,7 @@ function panelControlMarkup(id: string): string {
         step="${control.step}"
         value="0"
       />
+      ${dual}
 
       <output id="${outputIdFor(control)}">–</output>
       ${controlPopoverMarkup(control)}
@@ -926,6 +1002,28 @@ function panelControlMarkup(id: string): string {
 }
 
 function panelAdvancedMarkup(): string {
+  const toggle = `
+    <label class="demo-slider demo-toggle demo-ranges-toggle">
+      <span class="demo-slider-title"
+        >Ranges (expert)
+        <button
+          class="demo-info"
+          type="button"
+          aria-label="About range mode"
+          aria-expanded="false"
+        >
+          i
+        </button>
+      </span>
+      <input id="control-ranges" type="checkbox" />
+      <span class="demo-popover" role="tooltip"
+        >Turns every numeric slider into a two-handle range. Moving a
+        page between random copies of the setting instead of fixing
+        one value: the renderer picks a fresh value between the
+        handles for every page, derived from the seed.</span
+      >
+    </label>`;
+
   const groups = ADVANCED_GROUPS.map(({ key, heading }) => {
     const controls = CONTROLS.filter(
       (control) => control.tier === "advanced" && control.group === key,
@@ -947,6 +1045,7 @@ function panelAdvancedMarkup(): string {
   return `
     <details class="demo-advanced">
       <summary>Advanced settings</summary>
+      ${toggle}
       <div class="demo-advanced-groups">${groups}
       </div>
     </details>`;
@@ -1423,6 +1522,9 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     "#control-dithered-gray",
   )!;
 
+  const rangesToggle =
+    document.querySelector<HTMLInputElement>("#control-ranges")!;
+
   const desk = document.querySelector<HTMLDivElement>("#playground-desk")!;
 
   const parking = document.querySelector<HTMLDivElement>(
@@ -1440,6 +1542,17 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     input: HTMLInputElement | HTMLSelectElement;
 
     output: HTMLOutputElement | null;
+
+    /*
+     * Expert range mode: controls with `applyRange` carry a second
+     * pair of handles that applies the pair as a `[min, max]`
+     * range instead of a single value.
+     */
+    rangeMin: HTMLInputElement | null;
+
+    rangeMax: HTMLInputElement | null;
+
+    dual: HTMLElement | null;
   }
 
   const runtimes: ControlRuntime[] = [];
@@ -1452,7 +1565,14 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
         continue;
       }
 
-      runtimes.push({ control, input, output: null });
+      runtimes.push({
+        control,
+        input,
+        output: null,
+        rangeMin: null,
+        rangeMax: null,
+        dual: null,
+      });
     } else if (control.kind === "select") {
       const input = document.querySelector<HTMLSelectElement>(`#${control.id}`);
 
@@ -1460,7 +1580,14 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
         continue;
       }
 
-      runtimes.push({ control, input, output: null });
+      runtimes.push({
+        control,
+        input,
+        output: null,
+        rangeMin: null,
+        rangeMax: null,
+        dual: null,
+      });
     } else {
       const input = document.querySelector<HTMLInputElement>(`#${control.id}`);
 
@@ -1472,11 +1599,41 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
         continue;
       }
 
-      runtimes.push({ control, input, output });
+      const dual = control.applyRange
+        ? document.querySelector<HTMLElement>(`#${control.id}-dual`)
+        : null;
+
+      const rangeMin =
+        dual?.querySelector<HTMLInputElement>("input:first-of-type") ?? null;
+
+      const rangeMax =
+        dual?.querySelector<HTMLInputElement>("input:last-of-type") ?? null;
+
+      runtimes.push({
+        control,
+        input,
+        output,
+        rangeMin,
+        rangeMax,
+        dual,
+      });
     }
   }
 
   let pages: CourseReaderPage[] = [];
+
+  /*
+   * Expert range mode: when active, every slider with `applyRange`
+   * authors a `[min, max]` pair instead of a single value. The
+   * authored ranges are kept for the preset download and the
+   * viewer capture, since the resolved settings only expose
+   * concrete numbers.
+   */
+  let rangesActive = false;
+
+  let authoredRanges: DeepPartial<ScanSettingsWithRanges> = {};
+
+  const rangeValues = new Map<string, [number, number]>();
 
   let spreadElement: HTMLDivElement | null = null;
 
@@ -1490,6 +1647,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   let pageCount = 8;
 
+  function deskSeed(): string {
+    return seedInput.value.trim() || presetSelect.value;
+  }
+
   function panelState(): PanelState {
     return {
       layout: layoutSelect.value === "spread" ? "spread" : "single",
@@ -1498,7 +1659,14 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
       ditheredGray: ditheredGrayToggle.checked,
 
-      intendedTone: { ...intendedTone },
+      /*
+       * Ranges resolve for the state handed to the controls, so
+       * readers always see concrete numbers.
+       */
+      intendedTone: resolveNumericRanges(
+        { ...intendedTone },
+        deskSeed(),
+      ) as ScanSettings["tone"],
 
       rotationLeft: pageRotation.left,
 
@@ -1537,12 +1705,10 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     return {};
   }
 
-  function commitControl(
+  function applyControlChanges(
     control: ControlDefinition,
-    value: number | boolean | string,
+    overrides: DeepPartial<ScanSettingsWithRanges>,
   ): void {
-    const overrides = applyControlValue(control, value);
-
     if (overrides.tone && control.tone) {
       intendedTone = { ...intendedTone, ...overrides.tone };
     }
@@ -1561,6 +1727,25 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     syncDeskBindingWidth();
   }
 
+  function commitControl(
+    control: ControlDefinition,
+    value: number | boolean | string,
+  ): void {
+    applyControlChanges(control, applyControlValue(control, value));
+  }
+
+  function commitRange(control: RangeControl, min: number, max: number): void {
+    if (!control.applyRange) {
+      return;
+    }
+
+    const overrides = control.applyRange(min, max);
+
+    authoredRanges = deepMerge(authoredRanges, overrides);
+
+    applyControlChanges(control, overrides);
+  }
+
   function writeOutput(runtime: ControlRuntime): void {
     if (runtime.control.kind !== "range" || !runtime.output) {
       return;
@@ -1573,13 +1758,61 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       : String(value);
   }
 
+  function writeRangeFill(
+    runtime: ControlRuntime,
+    lo: number,
+    hi: number,
+  ): void {
+    if (!runtime.dual || runtime.control.kind !== "range") {
+      return;
+    }
+
+    const { min, max } = runtime.control;
+
+    const span = max - min || 1;
+
+    runtime.dual.style.setProperty(
+      "--lo",
+      `${(((lo - min) / span) * 100).toFixed(2)}%`,
+    );
+
+    runtime.dual.style.setProperty(
+      "--hi",
+      `${(((hi - min) / span) * 100).toFixed(2)}%`,
+    );
+  }
+
+  function writeRangeOutput(
+    runtime: ControlRuntime,
+    lo: number,
+    hi: number,
+  ): void {
+    if (!runtime.output || runtime.control.kind !== "range") {
+      return;
+    }
+
+    const { step } = runtime.control;
+
+    /*
+     * Fractional steps read with fixed decimals so the text keeps
+     * the same length at every drag position; integer steps and
+     * custom formats are already stable inside the fixed box.
+     */
+    const format =
+      runtime.control.format ??
+      ((value: number) =>
+        Number.isInteger(step) ? String(value) : value.toFixed(2));
+
+    runtime.output.textContent = `${format(lo)} – ${format(hi)}`;
+  }
+
   /*
    * In facing-pages mode the reproduction pipeline (dither and
    * tone reduction) runs once, globally, in the spread overlay.
    * The pages therefore render the optical pipeline only, and
    * this holds the tone settings the overlay applies.
    */
-  let intendedTone: ScanSettings["tone"];
+  let intendedTone: ScanSettingsWithRanges["tone"];
 
   function updateReadout(): void {
     settingsOutput.textContent = pages.length
@@ -1600,9 +1833,9 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     ditherAmount: 0.5,
   };
 
-  let toneBeforeDither: ScanSettings["tone"] | null = null;
+  let toneBeforeDither: ScanSettingsWithRanges["tone"] | null = null;
 
-  function captureTone(): ScanSettings["tone"] {
+  function captureTone(): ScanSettingsWithRanges["tone"] {
     if (layoutSelect.value === "spread") {
       return { ...intendedTone };
     }
@@ -1670,7 +1903,33 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       } else {
         const value = control.read(settings, state);
 
+        const disabled = Boolean(control.disabled?.(state));
+
         runtime.input.value = String(value);
+
+        if (control.applyRange && runtime.rangeMin && runtime.rangeMax) {
+          runtime.input.disabled = disabled || rangesActive;
+
+          runtime.rangeMin.disabled = disabled || !rangesActive;
+
+          runtime.rangeMax.disabled = disabled || !rangesActive;
+
+          if (rangesActive) {
+            const [lo, hi] = rangeValues.get(control.id) ?? [value, value];
+
+            runtime.rangeMin.value = String(lo);
+
+            runtime.rangeMax.value = String(hi);
+
+            writeRangeFill(runtime, lo, hi);
+
+            writeRangeOutput(runtime, lo, hi);
+
+            continue;
+          }
+        } else {
+          runtime.input.disabled = disabled;
+        }
 
         runtime.output!.textContent = control.format
           ? control.format(value)
@@ -1690,6 +1949,12 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
     for (const runtime of runtimes) {
       runtime.input.disabled = disabled;
+
+      if (runtime.rangeMin && runtime.rangeMax) {
+        runtime.rangeMin.disabled = disabled || !rangesActive;
+
+        runtime.rangeMax.disabled = disabled || !rangesActive;
+      }
     }
 
     downloadButton.disabled = disabled;
@@ -1785,8 +2050,11 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     }
 
     const svg = createToneFilter(
-      { ...settings, tone: intendedTone },
-      seedInput.value.trim() || presetSelect.value,
+      resolveNumericRanges(
+        { ...settings, tone: intendedTone },
+        deskSeed(),
+      ) as ScanSettings,
+      deskSeed(),
       "demo-spread-tone",
     );
 
@@ -2036,6 +2304,11 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
 
   function createPages(): void {
     destroyPages();
+
+    /* A rebuilt desk resets the authored ranges to collapsed. */
+    authoredRanges = {};
+
+    rangeValues.clear();
 
     const preset = presetSelect.value;
 
@@ -2314,6 +2587,24 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     updateReadout();
   });
 
+  /*
+   * Expert range mode: leaving it discards the authored ranges, so
+   * re-entering always starts from collapsed ranges again.
+   */
+  rangesToggle.addEventListener("change", () => {
+    rangesActive = rangesToggle.checked;
+
+    overridesFieldset.classList.toggle("demo-ranges", rangesActive);
+
+    if (!rangesActive) {
+      authoredRanges = {};
+
+      rangeValues.clear();
+    }
+
+    syncSliders();
+  });
+
   destroyButton.addEventListener("click", () => {
     if (pages.length) {
       destroyAll();
@@ -2389,6 +2680,39 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
           commitControl(control, value);
         }
       });
+
+      if (runtime.rangeMin && runtime.rangeMax && control.applyRange) {
+        const commitDual = (moved: "min" | "max"): void => {
+          let lo = Number(runtime.rangeMin!.value);
+
+          let hi = Number(runtime.rangeMax!.value);
+
+          /* The handles may not cross: the moved one clamps. */
+          if (lo > hi) {
+            if (moved === "min") {
+              lo = hi;
+
+              runtime.rangeMin!.value = String(lo);
+            } else {
+              hi = lo;
+
+              runtime.rangeMax!.value = String(hi);
+            }
+          }
+
+          rangeValues.set(control.id, [lo, hi]);
+
+          writeRangeFill(runtime, lo, hi);
+
+          writeRangeOutput(runtime, lo, hi);
+
+          commitRange(control, lo, hi);
+        };
+
+        runtime.rangeMin.addEventListener("input", () => commitDual("min"));
+
+        runtime.rangeMax.addEventListener("input", () => commitDual("max"));
+      }
     } else if (control.kind === "toggle") {
       runtime.input.addEventListener("change", () => {
         if (!(runtime.input instanceof HTMLInputElement)) {
@@ -2424,16 +2748,22 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       enhancement:
         enhancementSelect.value as CourseReaderPageOptions["enhancement"],
 
-      overrides: {
-        ...settings,
-
-        tone: intendedTone,
-
-        border: {
-          ...settings.border,
-          sides: { top: true, right: true, bottom: true, left: true },
+      /*
+       * The authored ranges ride on top of the resolved settings;
+       * the viewer's pages resolve them per seed.
+       */
+      overrides: deepMerge(
+        settings,
+        authoredRanges,
+        {
+          tone: intendedTone,
         },
-      },
+        {
+          border: {
+            sides: { top: true, right: true, bottom: true, left: true },
+          },
+        },
+      ),
 
       ringTop: ringBinderToggle.checked,
     };
@@ -2452,11 +2782,11 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
       return;
     }
 
-    const definition: PresetDefinition = {
-      ...pages[0].settings,
-
-      tone: captureTone(),
-    };
+    const definition: PresetDefinition = deepMerge(
+      pages[0].settings,
+      authoredRanges,
+      { tone: captureTone() },
+    );
 
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(definition, null, 2)], {

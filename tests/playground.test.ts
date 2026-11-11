@@ -269,3 +269,190 @@ describe("Playground viewer document", () => {
     expect(source.querySelector(".cr-book-page")).toBeNull();
   });
 });
+
+describe("Playground expert range mode", () => {
+  let host: HTMLElement;
+
+  let handle: ReturnType<typeof createPlayground> | null = null;
+
+  afterEach(() => {
+    handle?.destroy();
+    handle = null;
+
+    host?.remove();
+  });
+
+  function startPlayground(): void {
+    host = document.createElement("div");
+
+    document.body.append(host);
+
+    handle = createPlayground(host, {
+      sections: { playground: true, viewer: false },
+    });
+  }
+
+  function readout(): Record<string, unknown> {
+    return JSON.parse(
+      document.querySelector<HTMLPreElement>("#control-settings")!.textContent!,
+    );
+  }
+
+  it("keeps single sliders by default", () => {
+    startPlayground();
+
+    const toggle = document.querySelector<HTMLInputElement>("#control-ranges")!;
+
+    expect(toggle.checked).toBe(false);
+
+    const min = document.querySelector<HTMLInputElement>(
+      "#control-grain-range-min",
+    )!;
+
+    const single = document.querySelector<HTMLInputElement>("#control-grain")!;
+
+    expect(min.disabled).toBe(true);
+
+    expect(single.disabled).toBe(false);
+  });
+
+  it("switches the sliders to dual handles and applies ranges", () => {
+    startPlayground();
+
+    const toggle = document.querySelector<HTMLInputElement>("#control-ranges")!;
+
+    toggle.checked = true;
+
+    toggle.dispatchEvent(new Event("change"));
+
+    const min = document.querySelector<HTMLInputElement>(
+      "#control-grain-range-min",
+    )!;
+
+    const max = document.querySelector<HTMLInputElement>(
+      "#control-grain-range-max",
+    )!;
+
+    const single = document.querySelector<HTMLInputElement>("#control-grain")!;
+
+    expect(min.disabled).toBe(false);
+
+    expect(single.disabled).toBe(true);
+
+    /* The collapsed range starts at the current value (0 for the
+       clean preset), so the upper handle moves first. */
+    max.value = "0.6";
+
+    max.dispatchEvent(new Event("input"));
+
+    min.value = "0.2";
+
+    min.dispatchEvent(new Event("input"));
+
+    const grain = readout().artifacts as { grain: number };
+
+    expect(grain.grain).toBeGreaterThanOrEqual(0.2);
+
+    expect(grain.grain).toBeLessThanOrEqual(0.6);
+
+    /* The handles may not cross: the moved one clamps. */
+    min.value = "0.1";
+
+    min.dispatchEvent(new Event("input"));
+
+    expect(min.value).toBe("0.1");
+
+    min.value = "0.7";
+
+    min.dispatchEvent(new Event("input"));
+
+    expect(min.value).toBe("0.6");
+  });
+
+  it("carries the authored ranges into the preset download", async () => {
+    startPlayground();
+
+    const stub = stubDownload();
+
+    const toggle = document.querySelector<HTMLInputElement>("#control-ranges")!;
+
+    toggle.checked = true;
+
+    toggle.dispatchEvent(new Event("change"));
+
+    const min = document.querySelector<HTMLInputElement>(
+      "#control-grain-range-min",
+    )!;
+
+    const max = document.querySelector<HTMLInputElement>(
+      "#control-grain-range-max",
+    )!;
+
+    max.value = "0.6";
+
+    max.dispatchEvent(new Event("input"));
+
+    min.value = "0.2";
+
+    min.dispatchEvent(new Event("input"));
+
+    document.querySelector<HTMLButtonElement>("#control-download")!.click();
+
+    await flushTimers();
+
+    const text = await stub.blobs[0].text();
+
+    const definition = JSON.parse(text) as {
+      artifacts: { grain: number[] | number };
+    };
+
+    expect(definition.artifacts.grain).toEqual([0.2, 0.6]);
+  });
+
+  it("collapses the ranges when the preset changes", async () => {
+    startPlayground();
+
+    const stub = stubDownload();
+
+    const toggle = document.querySelector<HTMLInputElement>("#control-ranges")!;
+
+    toggle.checked = true;
+
+    toggle.dispatchEvent(new Event("change"));
+
+    const min = document.querySelector<HTMLInputElement>(
+      "#control-grain-range-min",
+    )!;
+
+    const max = document.querySelector<HTMLInputElement>(
+      "#control-grain-range-max",
+    )!;
+
+    max.value = "0.6";
+
+    max.dispatchEvent(new Event("input"));
+
+    min.value = "0.2";
+
+    min.dispatchEvent(new Event("input"));
+
+    const presetSelect =
+      document.querySelector<HTMLSelectElement>("#control-preset")!;
+
+    presetSelect.value = "clean";
+
+    presetSelect.dispatchEvent(new Event("change"));
+
+    document.querySelector<HTMLButtonElement>("#control-download")!.click();
+
+    await flushTimers();
+
+    const text = await stub.blobs[0]!.text();
+
+    const definition = JSON.parse(text) as {
+      artifacts: { grain: number[] | number };
+    };
+
+    expect(typeof definition.artifacts.grain).toBe("number");
+  });
+});
