@@ -419,6 +419,10 @@ below the previous one — pages in single layouts, paired rows in
 spread layouts — and scroll through the stack. Navigation buttons
 and arrow keys scroll to the current seat instead of paging.
 
+Instead of an array, `pages` also accepts a single element or
+selector: that element is then treated as one continuous document
+and split into book pages — see [Book convention](#book-convention).
+
 ### Links
 
 Links inside the pages read as ink: the browser's default link,
@@ -476,6 +480,99 @@ await viewer.goTo(5);
 Page indices are zero-based. Use `viewer.getPage()` for the current
 index, `viewer.refresh()` after external changes, and `viewer.destroy()`
 to tear the viewer down.
+
+## Book convention
+
+The viewer usually receives pages that already exist as separate
+elements. A single continuous document — one long HTML file, a
+Markdown render, a feed of chapters — can be fed to the viewer
+directly instead:
+
+```ts
+const viewer = createCourseReaderViewer("#reader", {
+  pages: "#manuscript",
+
+  bookHostClasses: "paper cr-prose",
+
+  layouts: [{ query: "all", mode: "spread" }],
+});
+```
+
+The document element itself becomes the first page and keeps its id
+and classes; every further page is collected into a generated host
+element (marked `cr-book-page`, plus the classes from
+`bookHostClasses`). Content is moved, not cloned, so ids, links and
+form state stay intact. Destroying the viewer moves everything back
+into the document in its original order.
+
+### Break markers
+
+Pagination is marker-driven: the library never reflows content on
+its own, so pages end where the author says they end. Three
+markers are honoured among the direct children of the document:
+
+| Marker                                     | Effect                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `<hr>`                                     | Ends the page; the rule itself is consumed                                        |
+| `data-page-break` attribute                | Ends the page after the carrying element                                          |
+| `break-before: page` / `break-after: page` | Honoured through the computed style, so stylesheet rules work like in paged media |
+
+`<hr>` needs no wrapper markup and is what Markdown `---` emits,
+which makes it the natural marker for generated documents. The CSS
+`break-*` properties are the native paged-media convention and
+compose with any element — a chapter heading can carry
+`break-before: page` and start a fresh sheet. Nested markers are
+ignored, so lists, tables and figures never split internally.
+Empty groups are kept as deliberate blank pages (versos).
+
+### Structure and typography
+
+The book classes style the furniture of a printed book while
+leaning on the document's own semantics: `h1`–`h3` for the title
+tiers, `<hgroup>` for title and subtitle, `<address>` for the
+imprint or colophon, `<aside>` for notes, `<blockquote>` with
+`<cite>` for epigraphs.
+
+| Class               | Feature                                                        |
+| ------------------- | -------------------------------------------------------------- |
+| `cr-titlepage`      | Title page; content is centred                                 |
+| `cr-book-title`     | Book title (`h1`)                                              |
+| `cr-part-title`     | Part title (`h2`)                                              |
+| `cr-chapter-title`  | Chapter title (`h3`)                                           |
+| `cr-subtitle`       | Subtitle, set in italic                                        |
+| `cr-author`         | Author line, set in small caps                                 |
+| `cr-kicker`         | Kicker above a title, small caps with tracking                 |
+| `cr-imprint`        | Imprint or colophon line, set smaller                          |
+| `cr-epigraph`       | Epigraph block, inset and ragged                               |
+| `cr-dropcap`        | Dropped initial letter on the carrying paragraph               |
+| `cr-smallcaps`      | Small-caps run inside the text                                 |
+| `cr-folio`          | Page number; an empty element numbers itself automatically     |
+| `cr-running-head`   | Running head, centred in small caps                            |
+| `cr-sidenote`       | Marginal note, floated into the fore-edge margin               |
+| `cr-footnote`       | Note set smaller beneath the prose                             |
+| `cr-verse`          | Verse block, indented and ragged                               |
+| `cr-hanging-indent` | Hanging indent for reference lists                             |
+| `cr-prose`          | Prose defaults: justified, hyphenated, widows and orphans kept |
+| `cr-ragged`         | Returns a page to ragged setting                               |
+
+The folio counter increments on every sheet, so an empty
+`<span class="cr-folio"></span>` renders its own page number in
+reading order. `cr-prose` is opt-in and meant for text pages;
+title pages, tables and forms read better without it.
+
+### Splitting without the viewer
+
+`splitBook` performs the split on its own and returns the page
+hosts, for pipelines that manage pages themselves:
+
+```ts
+import { splitBook } from "@projektemacher/coursereader";
+
+const book = splitBook("#manuscript", { hostClasses: "paper" });
+
+// book.pages — page host elements in reading order
+// book.restore() — undo the split
+```
 
 ## Gutter styles
 
@@ -595,7 +692,9 @@ playground.destroy();
 ```
 
 Options include `title`, `subtitle`, `sampleDocument`,
-`sampleDocumentRight`, `viewerPages` and `sections`.
+`sampleDocumentRight`, `viewerDocument` and `sections`. The viewer
+section receives one continuous document and splits it into pages
+with the book convention described above.
 
 The rendered demo exposes its own controls: tone and artifact sliders,
 preset, seed and enhancement selects, a frame toggle and a ring-binder
@@ -616,6 +715,7 @@ copier frame's darkness, thickness, roughness and sides.
 | `createCourseReaderPage(source, options)`         | Wrap an attached element in the scan effect      |
 | `courseReader`                                    | Alias for `createCourseReaderPage`               |
 | `createCourseReaderViewer(target, options)`       | Render a responsive single-page or spread viewer |
+| `splitBook(source, options)`                      | Split a continuous document into book pages      |
 | `createPlayground(target, options)`               | Render the demo playground                       |
 | `createToneFilter(settings, seed, id)`            | Build a standalone SVG tone filter               |
 | `createToneTable(settings, sampleCount)`          | Build an SVG component-transfer table            |
@@ -627,6 +727,7 @@ copier frame's darkness, thickness, roughness and sides.
 | `CourseReaderPageOptions`, `CourseReaderPage`     | Page options and handle                          |
 | `CourseReaderViewerOptions`, `CourseReaderViewer` | Viewer options and handle                        |
 | `ResponsiveLayout`, `GutterOptions`               | Layout and gutter configuration                  |
+| `SplitBookOptions`, `SplitBookHandle`             | Book splitting options and handle                |
 | `PlaygroundOptions`, `PlaygroundHandle`           | Playground options and handle                    |
 
 All public factories and types carry JSDoc with parameter, return and

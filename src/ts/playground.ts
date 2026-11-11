@@ -13,7 +13,7 @@ import {
   drawSampleCanvasFigures,
   SAMPLE_DOCUMENT,
   SAMPLE_DOCUMENT_RIGHT,
-  VIEWER_PAGES,
+  VIEWER_BOOK,
 } from "./playground-samples.js";
 import { installPlaygroundStyles } from "./playground-styles.js";
 import { presets } from "./presets.js";
@@ -58,10 +58,12 @@ export interface PlaygroundOptions {
   sampleDocumentRight?: string;
 
   /**
-   * HTML for the viewer pages. Keep the ids "viewer-page-1"
-   * through "viewer-page-4".
+   * HTML for the continuous viewer document. It is split into
+   * pages at the book break markers; keep the id "viewer-book" on
+   * the document element and the ids "viewer-page-2" through
+   * "viewer-page-4" on the chapter headings.
    */
-  viewerPages?: string[];
+  viewerDocument?: string;
 
   /**
    * Which sections to render. Both default to true.
@@ -103,12 +105,7 @@ const CUSTOM_PRESET = "library-copy";
  */
 const VIEWER_BINDING = "deep-bound-volume";
 
-const VIEWER_PAGE_SELECTORS = [
-  "#viewer-page-1",
-  "#viewer-page-2",
-  "#viewer-page-3",
-  "#viewer-page-4",
-];
+const VIEWER_BOOK_SELECTOR = "#viewer-book";
 
 const RING_FRAME_TOP = 72;
 
@@ -1327,7 +1324,7 @@ function shellMarkup(options: PlaygroundOptions): string {
         <div id="reader" class="demo-reader"></div>
 
         <div id="viewer-source-pages" hidden>
-          ${(options.viewerPages ?? VIEWER_PAGES).join("")}
+          ${options.viewerDocument ?? VIEWER_BOOK}
         </div>
       </section>
     `
@@ -2611,7 +2608,13 @@ function initViewerControls(shared: PlaygroundShared): () => void {
         : undefined;
 
     viewer = createCourseReaderViewer("#reader", {
-      pages: VIEWER_PAGE_SELECTORS,
+      pages: VIEWER_BOOK_SELECTOR,
+
+      /*
+       * The generated page hosts share the paper styling of the
+       * document element; the text pages read as justified prose.
+       */
+      bookHostClasses: "paper viewer-page cr-prose",
 
       preset: config?.preset ?? "microfilm-journal",
 

@@ -89,9 +89,8 @@ describe("Playground preset download", () => {
 
     const stub = stubDownload();
 
-    const button = document.querySelector<HTMLButtonElement>(
-      "#control-download",
-    )!;
+    const button =
+      document.querySelector<HTMLButtonElement>("#control-download")!;
 
     expect(button.disabled).toBe(false);
 
@@ -125,13 +124,11 @@ describe("Playground preset download", () => {
       sections: { playground: true, viewer: false },
     });
 
-    const button = document.querySelector<HTMLButtonElement>(
-      "#control-download",
-    )!;
+    const button =
+      document.querySelector<HTMLButtonElement>("#control-download")!;
 
-    const toneModeSelect = document.querySelector<HTMLSelectElement>(
-      "#control-tone-mode",
-    )!;
+    const toneModeSelect =
+      document.querySelector<HTMLSelectElement>("#control-tone-mode")!;
 
     toneModeSelect.value = "bitonal";
 
@@ -161,13 +158,11 @@ describe("Playground preset download", () => {
       sections: { playground: true, viewer: false },
     });
 
-    const button = document.querySelector<HTMLButtonElement>(
-      "#control-download",
-    )!;
+    const button =
+      document.querySelector<HTMLButtonElement>("#control-download")!;
 
-    const destroyButton = document.querySelector<HTMLButtonElement>(
-      "#control-destroy",
-    )!;
+    const destroyButton =
+      document.querySelector<HTMLButtonElement>("#control-destroy")!;
 
     destroyButton.click();
 
@@ -182,5 +177,95 @@ describe("Playground preset download", () => {
     await flushTimers();
 
     expect(stub.blobs).toHaveLength(clicks);
+  });
+});
+
+describe("Playground viewer document", () => {
+  let host: HTMLElement;
+
+  let handle: ReturnType<typeof createPlayground> | null = null;
+
+  afterEach(() => {
+    handle?.destroy();
+    handle = null;
+
+    host?.remove();
+  });
+
+  it("splits the continuous viewer document into book pages", () => {
+    host = document.createElement("div");
+
+    document.body.append(host);
+
+    handle = createPlayground(host, {
+      sections: { playground: false, viewer: true },
+    });
+
+    /*
+     * Continuous seating keeps every page attached to the document;
+     * in spread mode only the current row is seated.
+     */
+    const toggle =
+      document.querySelector<HTMLInputElement>("#viewer-continuous")!;
+
+    toggle.checked = true;
+
+    toggle.dispatchEvent(new Event("change"));
+
+    const pages = document.querySelectorAll<HTMLDivElement>(
+      "#reader .archive-scan-page",
+    );
+
+    expect(pages).toHaveLength(4);
+
+    /*
+     * The cover is the document element itself; the generated hosts
+     * share the paper styling and read as justified prose.
+     */
+    expect(document.querySelector("#viewer-book")!.className).toContain(
+      "viewer-page-cover",
+    );
+
+    for (const page of Array.from(pages).slice(1)) {
+      const content = page.querySelector<HTMLElement>(".archive-scan-content");
+
+      const host = content?.querySelector<HTMLElement>(".cr-book-page");
+
+      expect(host?.className).toContain(
+        "cr-book-page paper viewer-page cr-prose",
+      );
+    }
+
+    expect(
+      document.querySelectorAll(
+        "#reader .archive-scan-content > .cr-book-page .cr-folio",
+      ),
+    ).toHaveLength(3);
+  });
+
+  it("restores the document when the playground is destroyed", () => {
+    host = document.createElement("div");
+
+    document.body.append(host);
+
+    handle = createPlayground(host, {
+      sections: { playground: false, viewer: true },
+    });
+
+    const source = document.querySelector("#viewer-book")!;
+
+    expect(source.childElementCount).toBeGreaterThan(0);
+
+    handle.destroy();
+
+    handle = null;
+
+    /*
+     * The split is undone: every page element is back inside the
+     * continuous document, break markers included.
+     */
+    expect(source.querySelectorAll("hr")).toHaveLength(3);
+
+    expect(source.querySelector(".cr-book-page")).toBeNull();
   });
 });

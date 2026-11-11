@@ -389,13 +389,54 @@ export interface ResponsiveLayout {
 }
 
 /**
+ * Options for splitting a continuous document into book pages.
+ */
+export interface SplitBookOptions {
+  /**
+   * Additional classes for the generated page hosts. The first
+   * page keeps the source element with its own classes.
+   */
+  hostClasses?: string | string[];
+}
+
+/**
+ * Handle returned by `splitBook`.
+ */
+export interface SplitBookHandle {
+  /**
+   * Page host elements in reading order. The first host is the
+   * original source element.
+   */
+  readonly pages: HTMLElement[];
+
+  /**
+   * Moves every element back into the source in its original
+   * order and removes the generated hosts. Idempotent.
+   */
+  restore(): void;
+}
+
+/**
  * Options for creating a multi-page archive viewer.
  */
 export interface CourseReaderViewerOptions {
   /**
    * Page elements or selectors, in reading order.
+   *
+   * A single element or selector — passed without the array — is
+   * treated as one continuous document and split into pages at
+   * `<hr>` markers, at elements carrying `data-page-break` and at
+   * elements whose computed `break-before` or `break-after` is
+   * `page`. Destroying the viewer restores the document.
    */
-  pages: Array<HTMLElement | string>;
+  pages: Array<HTMLElement | string> | HTMLElement | string;
+
+  /**
+   * Additional classes for the page hosts generated when `pages`
+   * is a single continuous document. Defaults to none; the hosts
+   * always carry the `cr-book-page` class.
+   */
+  bookHostClasses?: string | string[];
 
   /**
    * Preset name applied to every page.

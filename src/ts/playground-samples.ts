@@ -2,7 +2,7 @@
  * Built-in sample content for the playground
  *
  * The samples keep stable IDs: the playground logic and custom
- * hosts rely on them (#sample-document, #viewer-page-1, …).
+ * hosts rely on them (#sample-document, #viewer-book, …).
  * ========================================================================== */
 
 export const SAMPLE_DOCUMENT = `
@@ -131,139 +131,141 @@ export const SAMPLE_DOCUMENT_RIGHT = `
   </article>
 `;
 
-export const VIEWER_PAGES: string[] = [
-  `
-    <article id="viewer-page-1" class="paper viewer-page viewer-page-cover">
-      <p class="paper-kicker">Annual Bulletin</p>
-      <h1>Reports of the<br />Ridgeline Survey</h1>
-      <p>Volume XII · 1968–1971</p>
-      <p>
-        Prepared for the
-        <a href="#viewer-page-2">Advisory Committee on Rural Surveys</a>
-      </p>
-      <p class="viewer-imprint">The Field Station Press</p>
-    </article>
-  `,
+/*
+ * The viewer receives one continuous document and splits it into
+ * pages at the book break markers. The ids "viewer-page-2" through
+ * "viewer-page-4" live on the chapter headings so the fragment
+ * links between the pages keep navigating the viewer; the cover is
+ * the document element itself and keeps its own id.
+ */
+export const VIEWER_BOOK = `
+  <article id="viewer-book" class="paper viewer-page viewer-page-cover cr-titlepage">
+    <p class="paper-kicker cr-kicker">Annual Bulletin</p>
+    <h1 class="cr-book-title">Reports of the<br />Ridgeline Survey</h1>
+    <p class="cr-subtitle">Volume XII · 1968–1971</p>
+    <p>
+      Prepared for the
+      <a href="#viewer-page-2">Advisory Committee on Rural Surveys</a>
+    </p>
+    <p class="viewer-imprint cr-imprint">The Field Station Press</p>
 
-  `
-    <article id="viewer-page-2" class="paper viewer-page">
-      <h2>1 · Method</h2>
-      <p>
-        Plots were walked twice monthly between March and October.
-        Observations were recorded on paper forms and transcribed during
-        the winter months. Species coverage was estimated on the revised
-        Domin scale.
-      </p>
-      <p>
-        Hedgerow width was measured at the narrowest point between the
-        hedgerow and the adjacent field margin, and hedgerow height was
-        recorded as the mean of three measurements taken at evenly spaced
-        intervals.
-      </p>
-      <h3>1.1 · Coverage</h3>
-      <ul>
-        <li>142 hedgerows across four parishes</li>
-        <li>Two visits per season, five seasons</li>
-        <li>Photographs archived at 600 dpi</li>
-      </ul>
-      <p>
-        Where a hedgerow crossed a metalled road, the two halves were
-        recorded as separate entries and cross-referenced in the parish
-        index; the mean figures are set out in
-        <a href="#viewer-page-3">Table 2</a>.
-      </p>
-    </article>
-  `,
+    <hr />
 
-  `
-    <article id="viewer-page-3" class="paper viewer-page">
-      <h2>2 · Results</h2>
-      <table>
-        <caption>Table 2 — Mean species richness by parish</caption>
-        <thead>
-          <tr>
-            <th scope="col">Parish</th>
-            <th scope="col">Hedgerows</th>
-            <th scope="col">Mean species</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Ashcombe</td><td>41</td><td>7.2</td></tr>
-          <tr><td>Nettlebed</td><td>38</td><td>6.1</td></tr>
-          <tr><td>Ockley</td><td>33</td><td>5.4</td></tr>
-          <tr><td>Thurlow</td><td>30</td><td>8.0</td></tr>
-        </tbody>
-      </table>
-      <figure class="paper-figure">
-        <svg viewBox="0 0 320 160" role="img" aria-label="Bar chart of mean species richness by parish">
-          <rect width="320" height="160" fill="#f5f3ee"></rect>
-          <line x1="24" y1="136" x2="300" y2="136" stroke="#444" stroke-width="1.5"></line>
-          <rect x="40" y="52" width="34" height="84" fill="#555"></rect>
-          <rect x="100" y="66" width="34" height="70" fill="#555"></rect>
-          <rect x="160" y="78" width="34" height="58" fill="#555"></rect>
-          <rect x="220" y="40" width="34" height="96" fill="#555"></rect>
-        </svg>
-        <figcaption>
-          Figure 2 — Mean species richness by parish, pooled seasons.
-        </figcaption>
-      </figure>
+    <h2 id="viewer-page-2" class="cr-chapter-title">1 · Method</h2>
+    <p>
+      Plots were walked twice monthly between March and October.
+      Observations were recorded on paper forms and transcribed during
+      the winter months. Species coverage was estimated on the revised
+      Domin scale.
+    </p>
+    <p>
+      Hedgerow width was measured at the narrowest point between the
+      hedgerow and the adjacent field margin, and hedgerow height was
+      recorded as the mean of three measurements taken at evenly spaced
+      intervals.
+    </p>
+    <h3>1.1 · Coverage</h3>
+    <ul>
+      <li>142 hedgerows across four parishes</li>
+      <li>Two visits per season, five seasons</li>
+      <li>Photographs archived at 600 dpi</li>
+    </ul>
+    <p>
+      Where a hedgerow crossed a metalled road, the two halves were
+      recorded as separate entries and cross-referenced in the parish
+      index; the mean figures are set out in
+      <a href="#viewer-page-3">Table 2</a>.
+    </p>
+    <p class="cr-folio"></p>
 
-      <figure class="paper-figure">
-        <canvas class="paper-canvas" width="640" height="360"></canvas>
-        <figcaption>
-          Figure 3 — Mean monthly temperature at the field station, 1969,
-          drawn on a canvas element.
-        </figcaption>
-      </figure>
+    <hr />
 
-      <p>
-        Species richness correlated most strongly with hedgerow age and
-        least with altitude. Management frequency showed a weak negative
-        relationship. The standard recording form is reproduced in the
-        <a href="#viewer-page-4">appendix</a>.
-      </p>
-    </article>
-  `,
+    <h2 id="viewer-page-3" class="cr-chapter-title">2 · Results</h2>
+    <table>
+      <caption>Table 2 — Mean species richness by parish</caption>
+      <thead>
+        <tr>
+          <th scope="col">Parish</th>
+          <th scope="col">Hedgerows</th>
+          <th scope="col">Mean species</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Ashcombe</td><td>41</td><td>7.2</td></tr>
+        <tr><td>Nettlebed</td><td>38</td><td>6.1</td></tr>
+        <tr><td>Ockley</td><td>33</td><td>5.4</td></tr>
+        <tr><td>Thurlow</td><td>30</td><td>8.0</td></tr>
+      </tbody>
+    </table>
+    <figure class="paper-figure">
+      <svg viewBox="0 0 320 160" role="img" aria-label="Bar chart of mean species richness by parish">
+        <rect width="320" height="160" fill="#f5f3ee"></rect>
+        <line x1="24" y1="136" x2="300" y2="136" stroke="#444" stroke-width="1.5"></line>
+        <rect x="40" y="52" width="34" height="84" fill="#555"></rect>
+        <rect x="100" y="66" width="34" height="70" fill="#555"></rect>
+        <rect x="160" y="78" width="34" height="58" fill="#555"></rect>
+        <rect x="220" y="40" width="34" height="96" fill="#555"></rect>
+      </svg>
+      <figcaption>
+        Figure 2 — Mean species richness by parish, pooled seasons.
+      </figcaption>
+    </figure>
 
-  `
-    <article id="viewer-page-4" class="paper viewer-page">
-      <h2>Appendix · Form 3C</h2>
-      <p>
-        Standard field form used by recorders between 1968 and 1971,
-        following the methods on
-        <a href="#viewer-page-2">the method page</a>.
-      </p>
-      <form class="paper-form">
-        <fieldset>
-          <legend>Hedgerow record</legend>
-          <label>Parish <input type="text" name="parish" value="Ashcombe" /></label>
-          <label>Plot number <input type="number" name="plot" value="41" /></label>
-          <label>
-            Aspect
-            <select name="aspect">
-              <option>North</option>
-              <option>East</option>
-              <option>South</option>
-              <option selected>West</option>
-            </select>
-          </label>
-          <label class="paper-checkbox">
-            <input type="checkbox" name="ditch" checked /> Adjacent ditch
-            present
-          </label>
-          <label class="paper-checkbox">
-            <input type="checkbox" name="remnant" /> Remnant hedge
-          </label>
-          <button type="button">File record</button>
-        </fieldset>
-      </form>
-      <p class="viewer-imprint">
-        Retain the original card. Duplicates were forwarded to the county
-        office at the end of each season.
-      </p>
-    </article>
-  `,
-];
+    <figure class="paper-figure">
+      <canvas class="paper-canvas" width="640" height="360"></canvas>
+      <figcaption>
+        Figure 3 — Mean monthly temperature at the field station, 1969,
+        drawn on a canvas element.
+      </figcaption>
+    </figure>
+
+    <p>
+      Species richness correlated most strongly with hedgerow age and
+      least with altitude. Management frequency showed a weak negative
+      relationship. The standard recording form is reproduced in the
+      <a href="#viewer-page-4">appendix</a>.
+    </p>
+    <p class="cr-folio"></p>
+
+    <hr />
+
+    <h2 id="viewer-page-4" class="cr-chapter-title">Appendix · Form 3C</h2>
+    <p>
+      Standard field form used by recorders between 1968 and 1971,
+      following the methods on
+      <a href="#viewer-page-2">the method page</a>.
+    </p>
+    <form class="paper-form">
+      <fieldset>
+        <legend>Hedgerow record</legend>
+        <label>Parish <input type="text" name="parish" value="Ashcombe" /></label>
+        <label>Plot number <input type="number" name="plot" value="41" /></label>
+        <label>
+          Aspect
+          <select name="aspect">
+            <option>North</option>
+            <option>East</option>
+            <option>South</option>
+            <option selected>West</option>
+          </select>
+        </label>
+        <label class="paper-checkbox">
+          <input type="checkbox" name="ditch" checked /> Adjacent ditch
+          present
+        </label>
+        <label class="paper-checkbox">
+          <input type="checkbox" name="remnant" /> Remnant hedge
+        </label>
+        <button type="button">File record</button>
+      </fieldset>
+    </form>
+    <p class="viewer-imprint">
+      Retain the original card. Duplicates were forwarded to the county
+      office at the end of each season.
+    </p>
+    <p class="cr-folio"></p>
+  </article>
+`;
 
 /*
  * The canvas figures are drawn at runtime with the Canvas 2D API.

@@ -20,6 +20,7 @@
   min-width: 0;
   background: var(--archive-paper);
   transform-origin: center center;
+  counter-increment: cr-folio;
 }
 
 .archive-scan-stage {
@@ -257,6 +258,7 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
+  counter-reset: cr-folio;
 }
 
 .archive-scan-slot {
@@ -519,4 +521,137 @@
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
+}
+
+/* ==========================================================================
+ * Book conventions
+ *
+ * Classes for typesetting continuous documents as books. They lean
+ * on the document's own semantics (h1–h3, hgroup, address, aside,
+ * blockquote) and add the print furniture HTML lacks: page
+ * counters, dropcaps, small caps, sidenotes. Everything inherits
+ * the paper's type family; only alignment, emphasis and counters
+ * are set here.
+ * ========================================================================== */
+
+/*
+ * The folio counter increments on every sheet (see
+ * `.archive-scan-page` above), so `.cr-folio` elements number
+ * themselves in reading order — in the viewer and for a single
+ * standalone page alike.
+ */
+.cr-folio:empty::after {
+  content: counter(cr-folio);
+}
+
+/*
+ * Title pages and their furniture. The classes map the classic
+ * parts of a title page; the elements beneath stay the author's
+ * choice (h1 with hgroup, address for the imprint).
+ */
+.cr-titlepage {
+  text-align: center;
+}
+
+.cr-book-title,
+.cr-part-title,
+.cr-chapter-title {
+  text-wrap: balance;
+}
+
+.cr-subtitle {
+  font-style: italic;
+  text-wrap: balance;
+}
+
+.cr-kicker,
+.cr-running-head,
+.cr-author {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+}
+
+.cr-running-head {
+  text-align: center;
+}
+
+.cr-imprint {
+  font-size: 0.85em;
+}
+
+/*
+ * Epigraphs sit inset from the measure and read ragged, whatever
+ * the surrounding prose does.
+ */
+.cr-epigraph {
+  margin-inline: 12%;
+  font-size: 0.9em;
+  text-align: start;
+  hyphens: none;
+}
+
+/*
+ * Prose defaults for text pages: justified measure, hyphenation
+ * and widow and orphan control. `.cr-ragged` returns to left-set
+ * ragged text for pages that mix prose with lists and tables.
+ */
+.cr-prose p {
+  text-align: justify;
+  hyphens: auto;
+  orphans: 2;
+  widows: 2;
+  text-wrap: pretty;
+}
+
+.cr-ragged p {
+  text-align: start;
+  hyphens: none;
+}
+
+/*
+ * Dropcaps float the initial letter into the measure, sized in em
+ * so it scales with the paper's type.
+ */
+.cr-dropcap::first-letter {
+  float: left;
+  font-size: 3em;
+  line-height: 0.8;
+  padding-inline-end: 0.08em;
+}
+
+.cr-smallcaps {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
+}
+
+/*
+ * Sidenotes float into the outer margin the way printed marginalia
+ * do; footnotes set smaller beneath the prose they annotate.
+ */
+.cr-sidenote {
+  float: inline-end;
+  clear: inline-end;
+  width: 28%;
+  margin-inline-start: 4%;
+  font-size: 0.85em;
+}
+
+.cr-footnote {
+  font-size: 0.85em;
+}
+
+/*
+ * Verse keeps its line breaks and reads ragged, indented from the
+ * measure like a quoted poem. Hanging indents set reference lists
+ * the way bibliographies print them.
+ */
+.cr-verse {
+  margin-inline-start: 12%;
+  text-align: start;
+  hyphens: none;
+}
+
+.cr-hanging-indent {
+  padding-inline-start: 2em;
+  text-indent: -2em;
 }

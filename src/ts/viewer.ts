@@ -3,6 +3,7 @@
  * ========================================================================== */
 
 import { bindings, builtInBindings, BindingRegistry } from "./bindings.js";
+import { splitBook } from "./book.js";
 import { createCourseReaderPage } from "./page.js";
 import { presets } from "./presets.js";
 import { installStyles } from "./styles.js";
@@ -12,6 +13,7 @@ import type {
   CourseReaderViewerOptions,
   GutterOptions,
   ResponsiveLayout,
+  SplitBookHandle,
 } from "./types.js";
 import { clamp, deepMerge, resolveElement, spineScaling } from "./utils.js";
 
@@ -143,6 +145,24 @@ function createSlot(
   return slot;
 }
 
+/*
+ * Resolves the viewer's pages: an array is the list of page
+ * sources, a single element or selector is one continuous document
+ * that `splitBook` divides into page hosts.
+ */
+function resolveBookPages(
+  pages: CourseReaderViewerOptions["pages"],
+  hostClasses: string | string[] | undefined,
+): { book: SplitBookHandle | null; sourcePages: HTMLElement[] } {
+  if (Array.isArray(pages)) {
+    return { book: null, sourcePages: pages.map(resolveElement) };
+  }
+
+  const book = splitBook(pages, { hostClasses });
+
+  return { book, sourcePages: book.pages.map(resolveElement) };
+}
+
 /**
  * Creates a responsive single-page or spread viewer.
  *
@@ -153,6 +173,13 @@ function createSlot(
  * one and navigation scrolls through the stack instead. With
  * `followLinks` fragment links inside the pages navigate to the
  * page containing the target id.
+ *
+ * `pages` accepts an array of page elements or selectors, or a
+ * single element or selector: in the single form the element is
+ * treated as one continuous document and split into pages at the
+ * book break markers — `<hr>`, `data-page-break` and computed
+ * `break-before`/`break-after: page`. Destroying the viewer
+ * restores the document.
  *
  * @param target - Host element or selector that receives the viewer.
  * @param options - Pages, presets, layouts and registry overrides.
@@ -179,11 +206,21 @@ export function createCourseReaderViewer(
 
   const host = resolveElement(target);
 
-  if (options.pages.length === 0) {
+  /*
+   * A single element or selector — without the array — is one
+   * continuous document: it is split into page hosts at the book
+   * break markers and restored when the viewer is destroyed.
+   */
+  const { book, sourcePages } = resolveBookPages(
+    options.pages,
+    options.bookHostClasses,
+  );
+
+  if (sourcePages.length === 0) {
+    book?.restore();
+
     throw new Error("Archive viewer requires at least one page.");
   }
-
-  const sourcePages = options.pages.map(resolveElement);
 
   const registry = options.registry ?? presets;
 
@@ -651,6 +688,8 @@ export function createCourseReaderViewer(
       for (const page of renderedPages) {
         page.destroy();
       }
+
+      book?.restore();
 
       viewer.remove();
     },

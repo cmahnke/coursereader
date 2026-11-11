@@ -12,6 +12,7 @@
 export * from "./types.js";
 export * from "./presets.js";
 export * from "./bindings.js";
+export * from "./book.js";
 export { createToneFilter, createToneTable } from "./filters.js";
 export * from "./page.js";
 export * from "./viewer.js";
