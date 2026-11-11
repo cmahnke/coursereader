@@ -450,7 +450,8 @@ input:focus-visible {
   margin: 1.25rem 0;
 }
 
-.paper-figure svg {
+.paper-figure svg,
+.paper-figure canvas {
   display: block;
   width: 100%;
   height: auto;

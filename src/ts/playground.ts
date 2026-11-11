@@ -10,6 +10,7 @@ import { bindings } from "./bindings.js";
 import { buildSvgFilter, createToneFilter } from "./filters.js";
 import { courseReader } from "./page.js";
 import {
+  drawSampleCanvasFigures,
   SAMPLE_DOCUMENT,
   SAMPLE_DOCUMENT_RIGHT,
   VIEWER_PAGES,
@@ -2158,6 +2159,12 @@ function initPlaygroundControls(shared: PlaygroundShared): () => void {
     updateReadout();
     setOverridesDisabled(false);
     destroyButton.textContent = "Destroy effect";
+
+    /*
+     * Ghost clones are fresh copies without canvas bitmaps, so the
+     * sample figures are drawn after every rebuild.
+     */
+    drawSampleCanvasFigures();
   }
 
   function destroyAll(): void {
@@ -2663,6 +2670,9 @@ function initViewerControls(shared: PlaygroundShared): () => void {
 
     updateIndicator();
     syncBindingWidth();
+
+    /* The viewer's ghost clones need the canvas figures drawn too. */
+    drawSampleCanvasFigures();
   }
 
   shared.refreshViewer = createViewer;

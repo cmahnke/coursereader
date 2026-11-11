@@ -69,6 +69,14 @@ export const SAMPLE_DOCUMENT = `
       </figcaption>
     </figure>
 
+    <figure class="paper-figure">
+      <canvas class="paper-canvas" width="640" height="360"></canvas>
+      <figcaption>
+        Figure 2 — Monthly temperature recorded at the field station,
+        1969, drawn on a canvas element.
+      </figcaption>
+    </figure>
+
     <blockquote>
       “A copy that loses the margins loses the context.” — second
       committee meeting, 1971
@@ -161,7 +169,8 @@ export const VIEWER_PAGES: string[] = [
       <p>
         Where a hedgerow crossed a metalled road, the two halves were
         recorded as separate entries and cross-referenced in the parish
-        index.
+        index; the mean figures are set out in
+        <a href="#viewer-page-3">Table 2</a>.
       </p>
     </article>
   `,
@@ -185,11 +194,6 @@ export const VIEWER_PAGES: string[] = [
           <tr><td>Thurlow</td><td>30</td><td>8.0</td></tr>
         </tbody>
       </table>
-      <p>
-        Species richness correlated most strongly with hedgerow age and
-        least with altitude. Management frequency showed a weak negative
-        relationship.
-      </p>
       <figure class="paper-figure">
         <svg viewBox="0 0 320 160" role="img" aria-label="Bar chart of mean species richness by parish">
           <rect width="320" height="160" fill="#f5f3ee"></rect>
@@ -203,13 +207,32 @@ export const VIEWER_PAGES: string[] = [
           Figure 2 — Mean species richness by parish, pooled seasons.
         </figcaption>
       </figure>
+
+      <figure class="paper-figure">
+        <canvas class="paper-canvas" width="640" height="360"></canvas>
+        <figcaption>
+          Figure 3 — Mean monthly temperature at the field station, 1969,
+          drawn on a canvas element.
+        </figcaption>
+      </figure>
+
+      <p>
+        Species richness correlated most strongly with hedgerow age and
+        least with altitude. Management frequency showed a weak negative
+        relationship. The standard recording form is reproduced in the
+        <a href="#viewer-page-4">appendix</a>.
+      </p>
     </article>
   `,
 
   `
     <article id="viewer-page-4" class="paper viewer-page">
       <h2>Appendix · Form 3C</h2>
-      <p>Standard field form used by recorders between 1968 and 1971.</p>
+      <p>
+        Standard field form used by recorders between 1968 and 1971,
+        following the methods on
+        <a href="#viewer-page-2">the method page</a>.
+      </p>
       <form class="paper-form">
         <fieldset>
           <legend>Hedgerow record</legend>
@@ -241,3 +264,74 @@ export const VIEWER_PAGES: string[] = [
     </article>
   `,
 ];
+
+/*
+ * The canvas figures are drawn at runtime with the Canvas 2D API.
+ * The scan pipeline treats them like any other content, but the
+ * show-through ghosts copy elements without their bitmap, so the
+ * routine draws into every canvas that carries the figure class —
+ * the source sheets and the ghost clones alike.
+ */
+const SAMPLE_TEMPERATURES = [
+  4.2, 5.1, 8.3, 12.6, 16.9, 20.4, 22.8, 22.1, 18.5, 13.7, 8.9, 5.4,
+];
+
+export function drawSampleCanvasFigures(): void {
+  for (const canvas of document.querySelectorAll<HTMLCanvasElement>(
+    "canvas.paper-canvas",
+  )) {
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      continue;
+    }
+
+    const ink = "#16150f";
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    context.save();
+
+    context.scale(canvas.width / 320, canvas.height / 180);
+
+    context.strokeStyle = ink;
+    context.fillStyle = ink;
+    context.lineWidth = 2;
+
+    context.beginPath();
+    context.moveTo(30, 150);
+    context.lineTo(300, 150);
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(30, 150);
+    context.lineTo(30, 20);
+    context.stroke();
+
+    const points = SAMPLE_TEMPERATURES.map((temperature, index) => ({
+      x: 30 + (index / (SAMPLE_TEMPERATURES.length - 1)) * 256,
+
+      y: 150 - (temperature / 26) * 130,
+    }));
+
+    context.beginPath();
+
+    for (const [index, point] of points.entries()) {
+      if (index === 0) {
+        context.moveTo(point.x, point.y);
+      } else {
+        context.lineTo(point.x, point.y);
+      }
+    }
+
+    context.stroke();
+
+    for (const point of points) {
+      context.beginPath();
+      context.arc(point.x, point.y, 3, 0, Math.PI * 2);
+      context.fill();
+    }
+
+    context.restore();
+  }
+}
