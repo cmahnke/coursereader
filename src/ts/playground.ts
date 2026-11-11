@@ -1248,6 +1248,10 @@ const VIEWER_TOOLBAR_MARKUP = `
   <button id="viewer-previous" type="button">← Previous</button>
   <span id="viewer-indicator" aria-live="polite">1 / 4</span>
   <button id="viewer-next" type="button">Next →</button>
+  <label class="demo-toggle viewer-continuous">
+    <input id="viewer-continuous" type="checkbox" />
+    <span>Continuous</span>
+  </label>
   <span class="demo-hint"
     >Arrow keys navigate · resize to switch single/spread</span
   >
@@ -2482,6 +2486,9 @@ function initViewerControls(shared: PlaygroundShared): () => void {
 
   const nextButton = document.querySelector<HTMLButtonElement>("#viewer-next")!;
 
+  const continuousToggle =
+    document.querySelector<HTMLInputElement>("#viewer-continuous")!;
+
   const indicator = document.querySelector<HTMLElement>("#viewer-indicator")!;
 
   let viewer: CourseReaderViewer | null = null;
@@ -2609,6 +2616,10 @@ function initViewerControls(shared: PlaygroundShared): () => void {
 
       overrides,
 
+      /* The stack follows the layout mode: single pages below
+         each other, or facing-page rows in spread mode. */
+      continuous: continuousToggle.checked,
+
       /* The spine scales with the same pages-per-side control
          that drives the desk's fold. */
       spinePages: shared.pageCount,
@@ -2652,6 +2663,10 @@ function initViewerControls(shared: PlaygroundShared): () => void {
   }
 
   shared.refreshViewer = createViewer;
+
+  continuousToggle.addEventListener("change", () => {
+    createViewer();
+  });
 
   previousButton.addEventListener("click", () => {
     void viewer?.previous().then(() => {

@@ -414,6 +414,11 @@ viewer opens on a full two-page spread. Set
 page alone on the right like a book cover, then pair the remaining
 pages (2-3, 4-5, …).
 
+Set `continuous: true` on the viewer options to stack every seat
+below the previous one — pages in single layouts, paired rows in
+spread layouts — and scroll through the stack. Navigation buttons
+and arrow keys scroll to the current seat instead of paging.
+
 Navigation:
 
 ```ts

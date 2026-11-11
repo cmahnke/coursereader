@@ -149,6 +149,8 @@ function createSlot(
  * The viewer renders every page through {@link createCourseReaderPage} and
  * switches layouts as the supplied media queries match. Navigation
  * moves by one page in single mode and two pages in spread mode.
+ * With the `continuous` option every seat stacks below the previous
+ * one and navigation scrolls through the stack instead.
  *
  * @param target - Host element or selector that receives the viewer.
  * @param options - Pages, presets, layouts and registry overrides.
@@ -232,55 +234,163 @@ export function createCourseReaderViewer(
     window.matchMedia(layout.query),
   );
 
-  function spreadIndices(
-    layout: ResponsiveLayout,
-  ): [number | null, number | null] {
-    const firstSide = layout.spread?.firstPageSide ?? "left";
+  function firstPageSide(layout: ResponsiveLayout): "left" | "right" {
+    return layout.spread?.firstPageSide ?? "left";
+  }
 
-    if (firstSide === "right") {
-      if (currentPage === 0) {
+  /*
+   * Spreads tile the pages in rows: with the first page on the
+   * left, row n seats pages 2n and 2n + 1; with the first page on
+   * the right, row 0 seats page 0 alone and row n seats pages
+   * 2n - 1 and 2n. Seats beyond the page count stay empty.
+   */
+  function spreadRow(
+    layout: ResponsiveLayout,
+    row: number,
+  ): [number | null, number | null] {
+    if (firstPageSide(layout) === "right") {
+      if (row === 0) {
         return [null, 0];
       }
 
-      const left = currentPage % 2 === 1 ? currentPage : currentPage - 1;
-
-      return [
-        left >= 0 ? left : null,
-
-        left + 1 < renderedPages.length ? left + 1 : null,
-      ];
+      return [2 * row - 1, 2 * row];
     }
 
-    const left = currentPage % 2 === 0 ? currentPage : currentPage - 1;
+    return [2 * row, 2 * row + 1];
+  }
+
+  function spreadRowCount(layout: ResponsiveLayout): number {
+    if (firstPageSide(layout) === "right") {
+      return 1 + Math.ceil((renderedPages.length - 1) / 2);
+    }
+
+    return Math.ceil(renderedPages.length / 2);
+  }
+
+  function rowForPage(layout: ResponsiveLayout, page: number): number {
+    if (firstPageSide(layout) === "right") {
+      return page === 0 ? 0 : Math.ceil(page / 2);
+    }
+
+    return Math.floor(page / 2);
+  }
+
+  function seat(
+    layout: ResponsiveLayout,
+    row: number,
+  ): [number | null, number | null] {
+    const [leftIndex, rightIndex] = spreadRow(layout, row);
 
     return [
-      left >= 0 ? left : null,
+      leftIndex !== null && leftIndex < renderedPages.length ? leftIndex : null,
 
-      left + 1 < renderedPages.length ? left + 1 : null,
+      rightIndex !== null && rightIndex < renderedPages.length
+        ? rightIndex
+        : null,
     ];
   }
 
   /*
    * The binding side of a spread has no exposed glass, so the
    * copier frame is suppressed there and facing pages meet at
-   * the spine. Pages away from the spread keep full frames.
+   * the spine. Pages away from a spread keep full frames.
    */
   function applyFrameSides(
     suppressSpine: boolean,
-    leftIndex: number | null,
-    rightIndex: number | null,
+    rows: Array<[number | null, number | null]>,
   ): void {
+    const suppressedRight = new Set<number>();
+
+    const suppressedLeft = new Set<number>();
+
+    if (suppressSpine) {
+      for (const [leftIndex, rightIndex] of rows) {
+        if (leftIndex !== null) {
+          suppressedRight.add(leftIndex);
+        }
+
+        if (rightIndex !== null) {
+          suppressedLeft.add(rightIndex);
+        }
+      }
+    }
+
     for (const [index, page] of renderedPages.entries()) {
       page.update({
         border: {
           sides: {
-            right: !(suppressSpine && index === leftIndex),
+            right: !suppressedRight.has(index),
 
-            left: !(suppressSpine && index === rightIndex),
+            left: !suppressedLeft.has(index),
           },
         },
       });
     }
+  }
+
+  function applySpineSides(rows: Array<[number | null, number | null]>): void {
+    const leftSeats = new Set<number>();
+
+    const rightSeats = new Set<number>();
+
+    for (const [leftIndex, rightIndex] of rows) {
+      if (leftIndex !== null) {
+        leftSeats.add(leftIndex);
+      }
+
+      if (rightIndex !== null) {
+        rightSeats.add(rightIndex);
+      }
+    }
+
+    for (const [index, page] of renderedPages.entries()) {
+      setSpineSide(
+        page,
+        leftSeats.has(index) ? "left" : rightSeats.has(index) ? "right" : null,
+      );
+    }
+  }
+
+  function createSpreadRow(
+    layout: ResponsiveLayout,
+    row: number,
+    gutter: GutterOptions | false,
+  ): HTMLDivElement {
+    const [leftIndex, rightIndex] = seat(layout, row);
+
+    const rowElement = document.createElement("div");
+
+    rowElement.className = "archive-scan-row";
+
+    rowElement.append(
+      createSlot(
+        leftIndex === null ? null : renderedPages[leftIndex],
+        "left",
+        gutter,
+      ),
+
+      createSlot(
+        rightIndex === null ? null : renderedPages[rightIndex],
+        "right",
+        gutter,
+      ),
+    );
+
+    return rowElement;
+  }
+
+  function createSingleRow(page: CourseReaderPage): HTMLDivElement {
+    const rowElement = document.createElement("div");
+
+    rowElement.className = "archive-scan-row";
+
+    rowElement.append(createSlot(page, "single", false));
+
+    return rowElement;
+  }
+
+  function scrollToCurrentPage(): void {
+    renderedPages[currentPage]?.element.scrollIntoView({ block: "start" });
   }
 
   async function refresh(): Promise<void> {
@@ -292,9 +402,17 @@ export function createCourseReaderViewer(
 
     const gutter = resolveGutter(layout.gutter, bindingRegistry);
 
+    const continuous = options.continuous === true;
+
     viewer.dataset.mode = layout.mode;
 
     viewer.dataset.fit = layout.pageFit ?? "contain";
+
+    if (continuous) {
+      viewer.dataset.continuous = "true";
+    } else {
+      delete viewer.dataset.continuous;
+    }
 
     viewer.style.setProperty("--archive-gap", `${layout.gap ?? 0}px`);
 
@@ -314,29 +432,54 @@ export function createCourseReaderViewer(
     }
 
     if (layout.mode === "single") {
-      applyFrameSides(false, null, null);
+      applyFrameSides(false, []);
 
-      for (const page of renderedPages) {
-        setSpineSide(page, null);
+      applySpineSides([]);
+
+      if (continuous) {
+        viewer.replaceChildren(...renderedPages.map(createSingleRow));
+      } else {
+        viewer.replaceChildren(
+          createSlot(renderedPages[currentPage], "single", false),
+        );
       }
 
-      viewer.replaceChildren(
-        createSlot(renderedPages[currentPage], "single", false),
-      );
+      if (continuous) {
+        scrollToCurrentPage();
+      }
 
       return;
     }
 
-    const [leftIndex, rightIndex] = spreadIndices(layout);
+    if (continuous) {
+      const rowCount = spreadRowCount(layout);
 
-    applyFrameSides(gutter !== false, leftIndex, rightIndex);
-
-    for (const [index, page] of renderedPages.entries()) {
-      setSpineSide(
-        page,
-        index === leftIndex ? "left" : index === rightIndex ? "right" : null,
+      const rows = Array.from({ length: rowCount }, (_, row) =>
+        seat(layout, row),
       );
+
+      applyFrameSides(gutter !== false, rows);
+
+      applySpineSides(rows);
+
+      viewer.replaceChildren(
+        ...Array.from({ length: rowCount }, (_, row) =>
+          createSpreadRow(layout, row, gutter),
+        ),
+      );
+
+      scrollToCurrentPage();
+
+      return;
     }
+
+    const row = seat(layout, rowForPage(layout, currentPage));
+
+    const [leftIndex, rightIndex] = row;
+
+    applyFrameSides(gutter !== false, [row]);
+
+    applySpineSides([row]);
 
     viewer.replaceChildren(
       createSlot(
@@ -377,6 +520,12 @@ export function createCourseReaderViewer(
         Math.min(renderedPages.length - 1, Math.floor(index)),
       );
 
+      if (options.continuous === true) {
+        scrollToCurrentPage();
+
+        return;
+      }
+
       await refresh();
     },
 
@@ -387,6 +536,12 @@ export function createCourseReaderViewer(
 
       currentPage = Math.min(renderedPages.length - 1, currentPage + amount);
 
+      if (options.continuous === true) {
+        scrollToCurrentPage();
+
+        return;
+      }
+
       await refresh();
     },
 
@@ -396,6 +551,12 @@ export function createCourseReaderViewer(
       const amount = layout.mode === "spread" ? 2 : 1;
 
       currentPage = Math.max(0, currentPage - amount);
+
+      if (options.continuous === true) {
+        scrollToCurrentPage();
+
+        return;
+      }
 
       await refresh();
     },

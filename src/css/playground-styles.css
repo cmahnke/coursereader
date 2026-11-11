@@ -763,6 +763,14 @@ input:focus-visible {
   text-align: center;
 }
 
+.demo-panel-row .demo-toggle {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .demo-reader {
   border-radius: 8px;
 }

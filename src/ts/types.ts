@@ -418,6 +418,14 @@ export interface CourseReaderViewerOptions {
   initialPage?: number;
 
   /**
+   * Stack every seat below the previous one instead of showing a
+   * single page or spread. Single layouts stack the pages, spread
+   * layouts stack the paired rows. Navigation scrolls through the
+   * stack. Defaults to `false`.
+   */
+  continuous?: boolean;
+
+  /**
    * Enhancement strategy used for every page.
    */
   enhancement?: "auto" | "svg" | "css";

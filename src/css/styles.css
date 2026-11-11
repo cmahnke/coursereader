@@ -291,6 +291,27 @@
 }
 
 /*
+ * Continuous mode stacks every seat — pages in single mode,
+ * spread rows in spread mode — and scrolls inside the viewer, so
+ * the surrounding chrome stays put while the stack moves. Each
+ * row carries the page gap between its slots, matching the gap
+ * the viewer applies between rows.
+ */
+.archive-scan-viewer[data-continuous] {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.archive-scan-row {
+  display: flex;
+  justify-content: center;
+  gap: var(--archive-gap);
+  width: 100%;
+}
+
+/*
  * The binding shadow belongs to the sheet: inside the content it
  * stops at the sheet's head and tail, sits under the spine curl
  * and passes through the same tone processing as the paper.

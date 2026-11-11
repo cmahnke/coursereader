@@ -212,6 +212,129 @@ describe("createCourseReaderViewer", () => {
     viewer.destroy();
   });
 
+  it("stacks every page in continuous single mode", () => {
+    const viewer = createSingleViewer({ continuous: true });
+
+    expect(viewer.element.dataset.continuous).toBe("true");
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(4);
+
+    for (const [index, page] of pages.entries()) {
+      expect(
+        page.contains(document.querySelector(`#viewer-page-${index + 1}`)!),
+      ).toBe(true);
+    }
+
+    viewer.destroy();
+  });
+
+  it("stacks every spread row in continuous spread mode", () => {
+    const viewer = createSpreadViewer({ continuous: true, gutter: "subtle" });
+
+    expect(viewer.element.dataset.continuous).toBe("true");
+
+    const rows = [
+      ...viewer.element.querySelectorAll(".archive-scan-row"),
+    ] as HTMLElement[];
+
+    expect(rows).toHaveLength(2);
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(4);
+
+    expect(pages[0]!.contains(document.querySelector("#viewer-page-1")!)).toBe(
+      true,
+    );
+
+    expect(pages[1]!.contains(document.querySelector("#viewer-page-2")!)).toBe(
+      true,
+    );
+
+    expect(pages[2]!.contains(document.querySelector("#viewer-page-3")!)).toBe(
+      true,
+    );
+
+    expect(pages[3]!.contains(document.querySelector("#viewer-page-4")!)).toBe(
+      true,
+    );
+
+    /* Every row marks and frames its own spine sides. */
+    expect(pages[0]!.dataset.spineSide).toBe("left");
+
+    expect(pages[1]!.dataset.spineSide).toBe("right");
+
+    expect(pages[2]!.dataset.spineSide).toBe("left");
+
+    expect(pages[3]!.dataset.spineSide).toBe("right");
+
+    expect(customProperty(pages[0]!, "--archive-frame-right")).toBe("0.0px");
+
+    expect(customProperty(pages[1]!, "--archive-frame-left")).toBe("0.0px");
+
+    expect(customProperty(pages[2]!, "--archive-frame-right")).toBe("0.0px");
+
+    expect(customProperty(pages[3]!, "--archive-frame-left")).toBe("0.0px");
+
+    viewer.destroy();
+  });
+
+  it("keeps the lone seats in continuous right mode", () => {
+    const viewer = createSpreadViewer({
+      continuous: true,
+      firstPageSide: "right",
+    });
+
+    const rows = [
+      ...viewer.element.querySelectorAll(".archive-scan-row"),
+    ] as HTMLElement[];
+
+    expect(rows).toHaveLength(3);
+
+    /* The opener seats alone, then one pair, then a lone tail page. */
+    expect(viewer.element.querySelectorAll(".archive-scan-empty")).toHaveLength(
+      2,
+    );
+
+    const pages = slotPages(viewer);
+
+    expect(pages).toHaveLength(4);
+
+    expect(pages[0]!.contains(document.querySelector("#viewer-page-1")!)).toBe(
+      true,
+    );
+
+    expect(pages[1]!.contains(document.querySelector("#viewer-page-2")!)).toBe(
+      true,
+    );
+
+    expect(pages[2]!.contains(document.querySelector("#viewer-page-3")!)).toBe(
+      true,
+    );
+
+    expect(pages[3]!.contains(document.querySelector("#viewer-page-4")!)).toBe(
+      true,
+    );
+
+    viewer.destroy();
+  });
+
+  it("scrolls instead of re-rendering in continuous mode", async () => {
+    const viewer = createSpreadViewer({ continuous: true });
+
+    const firstSlot = viewer.element.querySelector(".archive-scan-slot");
+
+    await viewer.next();
+
+    expect(viewer.getPage()).toBe(2);
+
+    expect(viewer.element.querySelector(".archive-scan-slot")).toBe(firstSlot);
+
+    viewer.destroy();
+  });
+
   it("advances by two pages in spread mode and clamps", async () => {
     const viewer = createSpreadViewer();
 
@@ -479,12 +602,13 @@ describe("createCourseReaderViewer", () => {
     return host;
   }
 
-  function createSingleViewer() {
+  function createSingleViewer(options: { continuous?: boolean } = {}) {
     spawnHost("viewer-host-spawned");
 
     return createCourseReaderViewer("#viewer-host-spawned", {
       pages: FOUR_PAGES,
       registry: freshPresetRegistry(),
+      continuous: options.continuous,
       layouts: [{ query: "all", mode: "single" }],
     });
   }
@@ -493,6 +617,7 @@ describe("createCourseReaderViewer", () => {
     options: {
       gutter?: ResponsiveLayout["gutter"];
       firstPageSide?: "left" | "right";
+      continuous?: boolean;
     } = {},
   ) {
     spawnHost("viewer-host-spawned");
@@ -501,6 +626,7 @@ describe("createCourseReaderViewer", () => {
       pages: FOUR_PAGES,
       registry: freshPresetRegistry(),
       bindingRegistry: freshBindingRegistry(),
+      continuous: options.continuous,
 
       overrides: {
         border: { enabled: true, thickness: 24, darkness: 0.9 },
