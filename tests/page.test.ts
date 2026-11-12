@@ -251,6 +251,76 @@ describe("createCourseReaderPage", () => {
     );
   });
 
+  it("derives the selection colors from the paper tone", () => {
+    const source = sampleDocument("selection-doc");
+
+    const page = createPage(source, {
+      overrides: { paper: { tone: 0.5 } },
+    });
+
+    expect(customProperty(page.element, "--archive-selection-background")).toBe(
+      "rgb(127, 127, 127)",
+    );
+
+    expect(customProperty(page.element, "--archive-selection-color")).toBe(
+      "rgb(128, 128, 128)",
+    );
+  });
+
+  it("inverts the selection for dark paper", () => {
+    const source = sampleDocument("selection-dark-doc");
+
+    const page = createPage(source, {
+      overrides: { paper: { tone: 0.2 } },
+    });
+
+    expect(customProperty(page.element, "--archive-selection-background")).toBe(
+      "rgb(204, 204, 204)",
+    );
+
+    expect(customProperty(page.element, "--archive-selection-color")).toBe(
+      "rgb(51, 51, 51)",
+    );
+  });
+
+  it("pins explicit selection colors", () => {
+    const source = sampleDocument("selection-pinned-doc");
+
+    const page = createPage(source, {
+      overrides: {
+        selection: { background: "#203040", color: "#f0f0f0" },
+      },
+    });
+
+    expect(customProperty(page.element, "--archive-selection-background")).toBe(
+      "#203040",
+    );
+
+    expect(customProperty(page.element, "--archive-selection-color")).toBe(
+      "#f0f0f0",
+    );
+  });
+
+  it("re-derives the selection colors on update", () => {
+    const source = sampleDocument("selection-update-doc");
+
+    const page = createPage(source, { overrides: { paper: { tone: 0.9 } } });
+
+    expect(customProperty(page.element, "--archive-selection-background")).toBe(
+      "rgb(25, 25, 25)",
+    );
+
+    page.update({ paper: { tone: 0.2 } });
+
+    expect(customProperty(page.element, "--archive-selection-background")).toBe(
+      "rgb(204, 204, 204)",
+    );
+
+    expect(customProperty(page.element, "--archive-selection-color")).toBe(
+      "rgb(51, 51, 51)",
+    );
+  });
+
   it("re-renders on update and preserves unrelated settings", () => {
     const source = sampleDocument("update-doc");
 

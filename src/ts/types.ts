@@ -252,6 +252,21 @@ export interface ScanSettings {
       left: boolean;
     };
   };
+
+  selection: {
+    /**
+     * Highlight color of selected text, or `"auto"` to derive it
+     * from the preset: `"auto"` inverts the paper tone, so light
+     * paper yields a dark highlight and dark paper a light one.
+     */
+    background: "auto" | string;
+
+    /**
+     * Color of selected text, or `"auto"` to take the paper tone,
+     * the counterpart of the inverted highlight.
+     */
+    color: "auto" | string;
+  };
 }
 
 /**

@@ -38,6 +38,18 @@
 }
 
 /*
+ * Selection reads as an inversion — the highlight flips the paper
+ * tone, the text takes the paper's place — so it survives every tone
+ * treatment, including bitonal. The renderer derives the two custom
+ * properties from the preset's paper tone; presets and overrides may
+ * pin either color explicitly.
+ */
+.archive-scan-page ::selection {
+  background: var(--archive-selection-background, #101010);
+  color: var(--archive-selection-color, #f6f6f6);
+}
+
+/*
  * Links read as ink, like every other mark on the copy: the
  * browser's default link, visited and hover colours would survive
  * the tone processing as mid-gray. An underline is reserved for

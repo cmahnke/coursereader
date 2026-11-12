@@ -74,6 +74,11 @@ export const defaultSettings: ScanSettings = {
       left: true,
     },
   },
+
+  selection: {
+    background: "auto",
+    color: "auto",
+  },
 };
 
 /**
@@ -485,6 +490,7 @@ export class PresetRegistry extends Registry<PresetDefinition> {
       "artifacts",
       "capture",
       "border",
+      "selection",
       "extends",
     ];
 

@@ -19,6 +19,13 @@ describe("PresetRegistry.resolve", () => {
     expect(presets.resolve()).toEqual(defaultSettings);
   });
 
+  it("resolves selection to auto by default", () => {
+    expect(presets.resolve("clean").selection).toEqual({
+      background: "auto",
+      color: "auto",
+    });
+  });
+
   it("resolves a chain so the child overrides the parent", () => {
     const registry = new PresetRegistry({
       child: { extends: "parent", paper: { tone: 0.5 } },
@@ -226,6 +233,27 @@ describe("PresetRegistry.fromUrl", () => {
         status: 200,
         statusText: "OK",
         json: async () => ({ extends: "clean" }),
+      })),
+    );
+
+    await expect(registry.fromUrl("./preset.json")).rejects.toThrow(
+      /pass a preset name/,
+    );
+  });
+
+  it("rejects a selection-only single definition without a name", async () => {
+    const registry = new PresetRegistry();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          extends: "clean",
+          selection: { background: "#123456" },
+        }),
       })),
     );
 

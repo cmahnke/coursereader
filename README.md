@@ -227,6 +227,30 @@ fallback mode.
 If JavaScript fails entirely, the source HTML remains normal HTML and
 does not depend on a canvas or generated image.
 
+## Text selection
+
+Text stays selectable, and the selection itself is part of the scan:
+the highlight and the selected text are styled to read as an inversion
+of the paper, so they pass through the tone processing — including
+strict bitonal mode — instead of disappearing into it.
+
+The colors derive automatically from the preset's paper tone: light
+paper yields a dark highlight with light text, dark paper the reverse.
+A preset or override may pin either color explicitly:
+
+```json
+{
+  "extends": "blueprint",
+  "selection": {
+    "background": "#f4f2ec",
+    "color": "#101010"
+  }
+}
+```
+
+Omitting a color (or setting it to `"auto"`) keeps the derivation from
+the paper tone. Both colors accept any CSS color string.
+
 ## Tuning the tone
 
 ### Strict bitonal mode

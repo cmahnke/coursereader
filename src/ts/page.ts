@@ -314,6 +314,25 @@ export function createCourseReaderPage(
       `rgb(${paperValue}, ${paperValue}, ${paperValue})`,
     );
 
+    /*
+     * Selection reads as an inversion of the paper so it survives
+     * every tone treatment, including bitonal. A preset or override
+     * may pin either color explicitly instead of "auto".
+     */
+    page.style.setProperty(
+      "--archive-selection-background",
+      settings.selection.background === "auto"
+        ? `rgb(${255 - paperValue}, ${255 - paperValue}, ${255 - paperValue})`
+        : settings.selection.background,
+    );
+
+    page.style.setProperty(
+      "--archive-selection-color",
+      settings.selection.color === "auto"
+        ? `rgb(${paperValue}, ${paperValue}, ${paperValue})`
+        : settings.selection.color,
+    );
+
     page.style.setProperty(
       "--archive-texture",
       String(clamp(settings.paper.texture)),
